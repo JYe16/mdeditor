@@ -1,0 +1,40 @@
+/* MDEditor — 简体中文 */
+
+/* 视图菜单 / 工具栏 */
+"View" = "视图";
+"Editor Only" = "仅编辑器";
+"Split View" = "分栏视图";
+"Preview Only" = "仅预览";
+"Switch between editor, split view and preview" = "在编辑器、分栏和预览之间切换";
+"Zoom In" = "放大";
+"Zoom Out" = "缩小";
+"Actual Size" = "实际大小";
+
+/* 文件 / 编辑菜单 */
+"Print…" = "打印…";
+"Find" = "查找";
+"Find…" = "查找…";
+"Find and Replace…" = "查找和替换…";
+"Find Next" = "查找下一个";
+"Find Previous" = "查找上一个";
+"Use Selection for Find" = "使用所选内容查找";
+
+/* 格式菜单 */
+"Format" = "格式";
+"Bold" = "粗体";
+"Italic" = "斜体";
+"Strikethrough" = "删除线";
+"Inline Code" = "行内代码";
+"Link" = "链接";
+"Heading 1" = "一级标题";
+"Heading 2" = "二级标题";
+"Heading 3" = "三级标题";
+"Quote" = "引用";
+"Bulleted List" = "无序列表";
+"Task List" = "任务列表";
+"Code Block" = "代码块";
+
+/* 状态栏 */
+"%lld words" = "%lld 字";
+"%lld characters" = "%lld 个字符";
+"%lld min read" = "约 %lld 分钟阅读";

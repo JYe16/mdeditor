@@ -1,0 +1,83 @@
+:root { color-scheme: light dark; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  /* Follow the macOS appearance so the pane blends with the editor. */
+  background: Canvas;
+  color: CanvasText;
+  -webkit-text-size-adjust: 100%;
+}
+
+.markdown-body {
+  box-sizing: border-box;
+  max-width: 880px;
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 32px 40px 96px;
+  background: transparent !important;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB",
+               "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.7;
+  word-wrap: break-word;
+}
+
+@media (max-width: 560px) {
+  .markdown-body { padding: 20px 20px 72px; }
+}
+
+.markdown-body pre code.hljs {
+  display: block;
+  padding: 0;
+  background: transparent;
+  overflow-x: auto;
+}
+.markdown-body code, .markdown-body pre, .markdown-body kbd, .markdown-body samp {
+  font-family: ui-monospace, "SF Mono", Menlo, Monaco, "PingFang SC", monospace;
+}
+
+/* Front matter */
+.markdown-body pre.frontmatter {
+  opacity: .7;
+  border-left: 3px solid var(--borderColor-default, #d0d7de);
+  border-radius: 0 6px 6px 0;
+}
+
+/* Math */
+.math-display { display: block; margin: 1em 0; overflow-x: auto; overflow-y: hidden; text-align: center; }
+.math-inline  { white-space: nowrap; }
+.katex { font-size: 1.08em; }
+
+/* Task lists */
+.markdown-body ul.contains-task-list { list-style: none; padding-left: 1.6em; }
+.markdown-body li.task-list-item > input[type="checkbox"] {
+  margin: 0 .5em .15em -1.4em;
+  vertical-align: middle;
+}
+
+/* GitHub-style alerts */
+.markdown-body blockquote.alert { border-left-width: .25em; padding-top: .35em; padding-bottom: .35em; }
+.markdown-body blockquote.alert .alert-title { font-weight: 600; margin: 0 0 .3em; }
+.markdown-body blockquote.alert-note      { border-left-color: #0969da; } .alert-note .alert-title      { color: #0969da; }
+.markdown-body blockquote.alert-tip       { border-left-color: #1a7f37; } .alert-tip .alert-title       { color: #1a7f37; }
+.markdown-body blockquote.alert-important { border-left-color: #8250df; } .alert-important .alert-title { color: #8250df; }
+.markdown-body blockquote.alert-warning   { border-left-color: #9a6700; } .alert-warning .alert-title   { color: #9a6700; }
+.markdown-body blockquote.alert-caution   { border-left-color: #cf222e; } .alert-caution .alert-title   { color: #cf222e; }
+@media (prefers-color-scheme: dark) {
+  .markdown-body blockquote.alert-note      { border-left-color: #4493f8; } .alert-note .alert-title      { color: #4493f8; }
+  .markdown-body blockquote.alert-tip       { border-left-color: #3fb950; } .alert-tip .alert-title       { color: #3fb950; }
+  .markdown-body blockquote.alert-important { border-left-color: #ab7df8; } .alert-important .alert-title { color: #ab7df8; }
+  .markdown-body blockquote.alert-warning   { border-left-color: #d29922; } .alert-warning .alert-title   { color: #d29922; }
+  .markdown-body blockquote.alert-caution   { border-left-color: #f85149; } .alert-caution .alert-title   { color: #f85149; }
+}
+
+.markdown-body .render-error { color: #cf222e; }
+.markdown-body img { background: transparent; }
+
+@media print {
+  html, body { background: #fff; color: #000; }
+  .markdown-body { max-width: none; padding: 0; }
+  .markdown-body pre, .markdown-body blockquote, .markdown-body table, .markdown-body img { break-inside: avoid; }
+  .markdown-body h1, .markdown-body h2, .markdown-body h3 { break-after: avoid; }
+}

@@ -1,0 +1,74 @@
+name: macOS
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths-ignore: ['windows/**']
+  pull_request:
+    paths-ignore: ['windows/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Toolchain
+        run: |
+          sw_vers
+          swift --version
+
+      - name: Editing-command tests
+        run: ./scripts/test.sh
+
+      - name: Build universal app and DMG
+        run: |
+          # On a release tag (v1.2.3) use that version, otherwise the default in scripts/build.sh.
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then export VERSION="${GITHUB_REF_NAME#v}"; fi
+          ./scripts/make-dmg.sh
+
+      - name: Checksum
+        run: |
+          cd build
+          for f in MDEditor-*.dmg; do shasum -a 256 "$f" > "$f.sha256"; done
+          ls -l MDEditor-*
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: macos-dmg
+          path: |
+            build/MDEditor-*.dmg
+            build/MDEditor-*.dmg.sha256
+          if-no-files-found: error
+
+  release:
+    # Only for version tags. Attaches the DMG to the GitHub Release of that tag (creating it if needed).
+    # The Windows workflow attaches its own files to the same release, so never delete or recreate it here.
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: macos-dmg
+          path: dist
+
+      - name: Publish release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "MDEditor ${TAG#v}" --generate-notes
+          gh release upload "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --clobber
