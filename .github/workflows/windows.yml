@@ -1,0 +1,56 @@
+name: Windows
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: windows
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build and test
+        run: ./scripts/build.ps1
+
+      - name: Smoke test
+        run: |
+          $exe = 'src/MDEditor.App/bin/x64/Release/net10.0-windows10.0.26100.0/win-x64/MDEditor.exe'
+          $report = Join-Path $env:RUNNER_TEMP 'smoke.txt'
+          $process = Start-Process (Resolve-Path $exe) -ArgumentList "--smoke-test=$report" -PassThru
+          if (-not $process.WaitForExit(180000)) { $process.Kill(); throw 'Smoke test timed out.' }
+          Get-Content $report
+          if ($process.ExitCode -ne 0) { throw "Smoke test failed with $($process.ExitCode)." }
+
+      - name: Package
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          choco install innosetup --no-progress -y
+          ./scripts/publish.ps1
+          ./scripts/make-installer.ps1
+
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $files = Get-ChildItem artifacts -File | Where-Object { $_.Name -ne 'install.exe' } | ForEach-Object { $_.FullName }
+          # The macOS workflow writes to the same release: create it if missing, otherwise only add files.
+          gh release create $env:GITHUB_REF_NAME @files --verify-tag --generate-notes
+          if ($LASTEXITCODE -ne 0) {
+            gh release upload $env:GITHUB_REF_NAME @files --clobber
+            if ($LASTEXITCODE -ne 0) { throw 'Upload failed.' }
+          }
