@@ -65,7 +65,7 @@ Read these before designing anything (≈ 1,200 lines in total):
 2. Feels like a first-class Windows app: native menus, Fluent styling, Mica/theme following, high-DPI, keyboard
    accessible, Windows shortcut conventions, standard file dialogs, file associations, Jump List/Recent.
 3. Fully **offline**; no telemetry; no network access of its own.
-4. Small, fast, and robust with Chinese IMEs (this app's primary user types Chinese — IME correctness is a hard
+4. Small, fast, and robust with Chinese IMEs (a large part of the audience types Chinese — IME correctness is a hard
    requirement, not polish).
 
 **Non-goals (v1)**: tabs, plugins, Mermaid/footnotes/emoji shortcodes (the shared preview doesn't support them),
@@ -250,8 +250,8 @@ Mac concept → Windows equivalent. "Authoritative" = port the Mac behaviour exa
   UTF-16; legacy single-byte files are saved as UTF-8. New files: UTF-8 without BOM.
 * **Line endings**: remember what the file used (LF / CRLF; mixed → majority) and write the same back; new files use LF.
   Internally the editor model uses `\n`.
-* **Safe save**: write to a temp file in the same folder then replace atomically (`File.Replace`/move). The user keeps
-  documents in Dropbox/Nextcloud/Overleaf-synced folders; a half-written file must never be visible to a sync client.
+* **Safe save**: write to a temp file in the same folder then replace atomically (`File.Replace`/move). Documents often
+  live in cloud-synced folders (Dropbox, Nextcloud, OneDrive…); a half-written file must never be visible to a sync client.
 * **External change detection** (`FileSystemWatcher`, debounced): unmodified document → silently reload keeping caret and
   scroll; modified document → ask (Reload / Keep mine). The Mac gets this from NSDocument.
 * **Single instance**: `Microsoft.Windows.AppLifecycle.AppInstance.FindOrRegisterForKey("MDEditor")` +
