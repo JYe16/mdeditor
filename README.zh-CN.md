@@ -1,115 +1,184 @@
+<div align="center">
+
+<img src="Resources/AppIcon.png" width="112" alt="MDEditor 图标">
+
 # MDEditor
 
-[English](README.md)
+**左边写 Markdown，右边看渲染结果。**
 
-macOS 原生 Markdown 编辑器：**左边写，右边实时渲染**。Swift + SwiftUI/AppKit 编写，预览用 WKWebView，
-所有渲染库都打包在 app 内，**完全离线可用**。支持 macOS 13+，Universal 二进制（Apple 芯片 + Intel）。
+一款小巧、离线可用的 Markdown 编辑器，在 macOS 和 Windows 上都是原生应用。
 
-> **Windows 版**：计划用原生 WinUI 3 实现，目录在 [`windows/`](windows/)，目前尚未提供。
+[![最新版本](https://img.shields.io/github/v/release/JYe16/mdeditor?label=release&color=2f6feb)](../../releases/latest)
+![支持平台](https://img.shields.io/badge/platform-macOS%2013%2B%20%7C%20Windows%2010%2F11-555)
+[![许可证：MIT](https://img.shields.io/badge/license-MIT-3fb950)](LICENSE)
+
+[English](README.md) · 简体中文
+
+[安装](#安装) · [功能](#功能) · [快捷键](#快捷键) · [构建](#从源码构建) · [实现方式](#实现方式)
+
+<br>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/windows-dark.png">
+  <img src="docs/images/windows-light.png" alt="MDEditor 左侧显示 Markdown 源码，右侧显示渲染预览" width="900">
+</picture>
+
+<sub>Windows 11 界面。macOS 版布局相同，预览也是同一套。</sub>
+
+</div>
+
+## 为什么用 MDEditor
+
+- **两个平台都是原生应用。** macOS 用 SwiftUI 和 AppKit，Windows 用 WinUI 3。菜单、对话框、快捷键和输入法都符合各自系统的习惯。
+- **完全离线。** 渲染库全部打包在应用内。不需要账号，没有遥测，应用自身不联网。
+- **滚动对得齐。** 滚动同步按源码行定位，而不是按百分比，长文档里有图片和表格也不会错位。
+- **认真对待中文。** 输入法组字时不会触发着色和渲染；字数统计把每个汉字算作一个字。
 
 ## 安装
 
-### Homebrew
+| | macOS 13 及以上 | Windows 10（2004）及以上 |
+| --- | --- | --- |
+| **架构** | Universal（Apple 芯片和 Intel） | x64 和 ARM64 |
+| **获取方式** | Homebrew 或 DMG | 从源码构建，或等安装包发布到 [Releases](../../releases) |
+
+### macOS
 
 ```bash
 brew tap JYe16/tap
-brew trust --tap JYe16/tap        # 较新的 Homebrew 要求对第三方 tap 显式授信
+brew trust --tap JYe16/tap
 brew install --cask mdeditor
 ```
 
-### DMG
+也可以到 [Releases](../../releases) 下载 `MDEditor-<版本>.dmg`，把应用拖进“应用程序”。
 
-到 [Releases](../../releases) 下载 `MDEditor-<版本>.dmg`，双击打开，把 **MDEditor** 拖进「应用程序」。
-也可以自己打包后拷到另一台 Mac（AirDrop / U 盘 / 网盘均可），见下方「构建与打包」。
+<details>
+<summary>macOS 拒绝打开应用时</summary>
 
-### 首次打开
+MDEditor 只做了 ad-hoc 签名，没有经过 Apple 公证。通过 Homebrew 安装时，cask 会自动清除隔离标记。用 DMG 安装的话，可以到**系统设置 → 隐私与安全性**点击**仍要打开**，或者运行：
 
-MDEditor 只做了 ad-hoc 签名，**没有经过 Apple 公证**（没有付费开发者账号）。通过 Homebrew 安装时，cask 会帮你清除下载隔离标记；
-如果是用 DMG 安装、第一次打开被 macOS 拦截，任选一种：
+```bash
+xattr -dr com.apple.quarantine /Applications/MDEditor.app
+```
 
-- 系统设置 → 隐私与安全性 → 滚到底，点 MDEditor 旁的 **「仍要打开」**
-- 或终端执行一次：`xattr -dr com.apple.quarantine /Applications/MDEditor.app`
+</details>
 
-用 U 盘 / scp / 局域网共享拷贝通常不会被拦截。iPhone / iPad 无法安装这个 app —— 它是 macOS 应用。
+### Windows
+
+> [!NOTE]
+> Windows 安装包还没有放到 Releases，当前版本只有 macOS 的 DMG。在下一个带标签的版本发布之前，请[从源码构建安装程序](#windows-1)。
+
+运行安装程序后，可以选择仅为自己安装（不需要管理员权限）或为所有用户安装，安装位置可以任选。.NET 和 Windows App SDK 已经打包在内。预览依赖 WebView2 运行库，Windows 11 自带；其他系统上安装程序会提示下载。ARM64 安装包已能构建，但还没有在真机上测试过。
+
+<details>
+<summary>SmartScreen、默认应用和安全软件</summary>
+
+- 安装程序没有代码签名。如果出现 SmartScreen 提示，选择**更多信息 → 仍要运行**。
+- 安装程序会把 MDEditor 加入“打开方式”。要设为默认程序，请到**设置 → 应用 → 默认应用 → MDEditor**，这个选择 Windows 只留给用户自己。
+- 部分安全软件会阻止注册“打开方式”，这不影响安装和使用。需要打开文件时，选择**打开方式 → 选择其他应用**，然后找到 `MDEditor.exe`。
+
+</details>
 
 ## 功能
 
-- **分栏实时预览**（默认），也可切到仅编辑 / 仅预览：`⌘1` `⌘2` `⌘3`，或点工具栏按钮
-- **按源码行对齐的滚动同步**：滚任意一边，另一边跟着走；点预览里的 `#锚点` 链接，编辑器也会跳过去
-- GitHub 风格 Markdown：表格、任务列表、删除线、自动链接、`> [!NOTE]` 提示块、YAML front matter
-- 代码块语法高亮（43 种语言，含 Swift、Python、LaTeX、MATLAB、Julia…）
-- 数学公式（KaTeX）：行内 `$E=mc^2$`，块级 `$$ … $$`；`$5 和 $10` 这类价格不会被误判
-- 编辑器语法着色（标题、粗斜体、代码、链接、列表、引用…），跟随浅色 / 深色模式
-- 回车自动续写列表 / 任务 / 引用，空项再回车结束列表；`Tab` / `⇧Tab` 缩进列表
-- 中文输入法友好：拼音组字过程中不会触发高亮和渲染
-- 查找替换（`⌘F`）、打印 / 导出 PDF（`⌘P`）、放大缩小（`⌘+` `⌘-` `⌘0`）、字数 / 阅读时间状态栏（CJK 按字计）
-- 预览里的相对路径图片按文档所在目录解析；外部链接用默认浏览器打开，相对路径的 `.md` 链接在本 app 打开
-- 安全：预览用 DOMPurify 过滤，文档里的 `<script>` 等不会执行
-- 界面语言：English / 简体中文（随系统）
+**写作**
+- 编辑器语法着色，跟随浅色和深色模式
+- 回车自动续写列表、任务和引用，在空项上回车则结束
+- Tab 和 Shift+Tab 缩进列表及选中的行
+- 查找替换、缩放、字数和阅读时间统计
 
-暂不支持：Mermaid 图表、脚注、emoji 短代码。
+**预览**
+- GitHub 风格 Markdown：表格、任务列表、删除线、自动链接和 `> [!NOTE]` 提示块
+- YAML front matter
+- 代码高亮，支持 43 种语言，包括 Swift、Python、LaTeX、MATLAB 和 Julia
+- KaTeX 数学公式，行内 `$E=mc^2$`，块级 `$$ … $$`；`$5 和 $10` 这样的价格不会被当成公式
+- 增量渲染：只重建改动的块，不闪烁，图片也不会重新加载
 
-### 快捷键
+**文件与安全**
+- 仅编辑、分栏、仅预览三种视图
+- 打印和导出 PDF
+- 相对路径的图片按文档所在目录解析，相对路径的 `.md` 链接在 MDEditor 中打开
+- 预览经 DOMPurify 过滤，文档里的 `<script>` 不会执行
+- 指向可执行文件的链接绝不会被运行，只会在访达或资源管理器中显示
+- 英文和简体中文界面，跟随系统语言
 
-| 操作 | 快捷键 | | 操作 | 快捷键 |
-| --- | --- | --- | --- | --- |
-| 粗体 | `⌘B` | | 一 / 二 / 三级标题 | `⌥⌘1` `⌥⌘2` `⌥⌘3` |
-| 斜体 | `⌘I` | | 引用 | `⌘'` |
-| 删除线 | `⇧⌘X` | | 无序列表 | `⇧⌘8` |
-| 行内代码 | `⌥⌘C` | | 任务列表 | `⌥⌘T` |
-| 链接 | `⌘K` | | 代码块 | `⌥⌘K` |
+暂不支持：Mermaid 图表、脚注和 emoji 短代码。
 
-## 构建与打包
+## 快捷键
 
-需要 Xcode（或 Command Line Tools）。不需要 Node：渲染库已放在 `Resources/preview/vendor/`。
+| 操作 | macOS | Windows |
+| --- | --- | --- |
+| 仅编辑 / 分栏 / 仅预览 | `⌘1` `⌘2` `⌘3` | `Ctrl+Shift+1` `2` `3` |
+| 粗体 / 斜体 | `⌘B` `⌘I` | `Ctrl+B` `Ctrl+I` |
+| 删除线 | `⇧⌘X` | `Ctrl+Shift+X` |
+| 行内代码 | `⌥⌘C` | `Ctrl+E` |
+| 链接 | `⌘K` | `Ctrl+K` |
+| 一 / 二 / 三级标题 | `⌥⌘1` `2` `3` | `Ctrl+1` `2` `3` |
+| 引用 | `⌘'` | `Ctrl+Shift+Q` |
+| 无序列表 | `⇧⌘8` | `Ctrl+Shift+L` |
+| 任务列表 | `⌥⌘T` | `Ctrl+Shift+T` |
+| 代码块 | `⌥⌘K` | `Ctrl+Shift+K` |
+| 查找 | `⌘F` | `Ctrl+F` |
+| 替换 | `⌥⌘F` | `Ctrl+H` |
+| 打印 | `⌘P` | `Ctrl+P` |
+| 放大 / 缩小 / 实际大小 | `⌘+` `⌘-` `⌘0` | `Ctrl+=` `Ctrl+-` `Ctrl+0` |
+
+## 从源码构建
+
+渲染库已放在 `Resources/preview/vendor/`，两个平台都不需要 Node。
+
+### macOS
+
+需要 Xcode 或 Command Line Tools。
 
 ```bash
-./scripts/build.sh                     # 生成 build/MDEditor.app（Universal，ad-hoc 签名）
-./scripts/make-dmg.sh                  # 生成 build/MDEditor-<版本>.dmg
-VERSION=1.1.0 ./scripts/make-dmg.sh    # 指定版本号
-./scripts/test.sh                      # 编辑命令的无界面回归测试（39 项）
+./scripts/build.sh      # 生成 build/MDEditor.app
+./scripts/make-dmg.sh   # 生成 build/MDEditor-<版本>.dmg
+./scripts/test.sh       # 编辑命令回归测试
 ```
 
-开发时可以直接 `swift build && swift run`（在仓库根目录运行，会从 `Resources/preview` 读取预览页面）。
+### Windows
 
-> 如果想免去「首次打开」的提示，需要加入 Apple Developer Program（$99/年），用 Developer ID 签名并公证，
-> 再把 `scripts/build.sh` 里的 `codesign --sign -` 换成自己的证书即可。
+需要 .NET 10 SDK；打包安装程序还需要 [Inno Setup 6](https://jrsoftware.org/isinfo.php)。在 `windows/` 目录下运行：
 
-## 目录结构
-
-```
-Package.swift
-Sources/MDEditor/
-  MDEditorApp.swift          App 入口、菜单命令（视图 / 格式 / 查找 / 打印）
-  MarkdownDocument.swift     FileDocument：读写 .md（UTF-8，兼容常见旧编码）
-  ContentView.swift          主界面：工具栏切换、状态栏、字数统计
-  SplitEditorView.swift      分栏容器：编辑器 + WKWebView + 滚动同步 + 渲染调度
-  MarkdownTextView.swift     NSTextView 子类：列表续写、Tab、格式命令
-  MarkdownHighlighter.swift  编辑器语法着色
-Resources/
-  Info.plist                 .md 文件类型关联
-  preview/                   预览页面：index.html、app.js（增量渲染）、vendor/（marked、DOMPurify、highlight.js、KaTeX…）
-  *.lproj/                   本地化
-  AppIcon.icns、AppIcon.png
-scripts/                     build.sh、make-dmg.sh、make-icon.swift、test.sh、发布辅助脚本
-Tests/EditingTests/          无界面回归测试
-windows/                     Windows（WinUI 3）版本——筹备中
-examples/sample.md           功能演示文档
+```bash
+./scripts/build.ps1
 ```
 
-第三方库及其许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+```bash
+./scripts/publish.ps1
+```
 
-## 实现备注
+```bash
+./scripts/make-installer.ps1
+```
 
-- 编辑器用 **TextKit 1**：滚动同步需要精确的行几何。文本容器宽度由 `MarkdownTextView` 自己维护并设下限，
-  因为 TextKit 1 在容器宽度 ≤ 0 时会以 100% CPU 无限排版（窗口刚创建、布局尚未完成时会出现）。
-- 预览按顶层块增量渲染：改一处只重建对应的块，其余 DOM 保持不变，所以不闪烁、图片不重载。
-- 预览页和 app 之间的滚动同步用「源码行号」做坐标，而不是滚动百分比，所以长文档里也能对齐。
+安装程序会生成在 `windows/artifacts/`。更多说明见 [`windows/README.md`](windows/README.md)。
+
+## 实现方式
+
+```mermaid
+flowchart LR
+    M["macOS 编辑器<br>Swift · NSTextView"] -->|Markdown 和源码行号| P
+    W["Windows 编辑器<br>C# · RichEditBox"] -->|Markdown 和源码行号| P
+    P["共用预览页<br>Resources/preview<br>marked · DOMPurify · highlight.js · KaTeX"]
+    P -->|滚动到的源码行| M
+    P -->|滚动到的源码行| W
+```
+
+两个编辑器是各自独立的原生程序。预览是同一个 HTML 页面，在 macOS 上由 WKWebView 承载，在 Windows 上由 WebView2 承载，所以两边的渲染结果一致。
+
+| 路径 | 内容 |
+| --- | --- |
+| `Sources/MDEditor/` | macOS 应用 |
+| `windows/src/MDEditor.App/` | Windows 应用 |
+| `windows/src/MDEditor.Core/` | Windows 编辑逻辑，不含 UI 代码，可在任何系统上测试 |
+| `Resources/preview/` | 共用预览页和内置的渲染库 |
+| `examples/sample.md` | 覆盖全部功能的示例文档 |
 
 ## 参与贡献
 
-欢迎提 issue 和 PR。修改了编辑行为的话，请先跑一遍 `./scripts/test.sh`。发布流程见 [docs/RELEASING.md](docs/RELEASING.md)。
+欢迎提 issue 和 PR。修改编辑行为前，请运行对应平台的测试：macOS 用 `./scripts/test.sh`，Windows 逻辑用 `dotnet test windows/tests/MDEditor.Core.Tests`。发布流程见 [docs/RELEASING.md](docs/RELEASING.md)。
 
 ## 许可证
 
-[MIT](LICENSE) © 2026 JYe16。内置的第三方库各自保留其许可证，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+[MIT](LICENSE) © 2026 JYe16。内置的第三方库保留各自的许可证，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 和 [Windows 版声明](windows/THIRD_PARTY_NOTICES.md)。

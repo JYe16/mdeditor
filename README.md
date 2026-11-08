@@ -1,122 +1,184 @@
+<div align="center">
+
+<img src="Resources/AppIcon.png" width="112" alt="MDEditor icon">
+
 # MDEditor
 
-[简体中文](README.zh-CN.md)
+**Write Markdown on the left. See it rendered on the right.**
 
-A native macOS Markdown editor: **write on the left, see it rendered on the right.** Written in Swift
-(SwiftUI + AppKit); the preview runs in a WKWebView and every rendering library is bundled, so it works
-**completely offline**. macOS 13+, universal binary (Apple silicon + Intel).
+A small, offline Markdown editor that is native on both macOS and Windows.
 
-> **Windows:** a native WinUI 3 version is planned in [`windows/`](windows/) — not available yet.
+[![Latest release](https://img.shields.io/github/v/release/JYe16/mdeditor?label=release&color=2f6feb)](../../releases/latest)
+![Platforms](https://img.shields.io/badge/platform-macOS%2013%2B%20%7C%20Windows%2010%2F11-555)
+[![License: MIT](https://img.shields.io/badge/license-MIT-3fb950)](LICENSE)
+
+English · [简体中文](README.zh-CN.md)
+
+[Install](#install) · [Features](#features) · [Shortcuts](#shortcuts) · [Build](#build-from-source) · [How it works](#how-it-works)
+
+<br>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/windows-dark.png">
+  <img src="docs/images/windows-light.png" alt="MDEditor showing Markdown source next to the rendered preview" width="900">
+</picture>
+
+<sub>Windows 11. The macOS app has the same layout and shares the same preview.</sub>
+
+</div>
+
+## Why MDEditor
+
+- **Native on each platform.** SwiftUI and AppKit on macOS, WinUI 3 on Windows. Menus, dialogs, shortcuts and input methods behave the way the system expects.
+- **Works offline.** Every rendering library ships inside the app. There are no accounts, no telemetry and no network calls of its own.
+- **Stays aligned.** Scroll sync follows source lines rather than percentages, so long documents with images and tables stay in step.
+- **Built with CJK in mind.** Nothing is re-coloured or re-rendered while an input method is composing, and word counts treat each CJK character as a word.
 
 ## Install
 
-### Homebrew
+| | macOS 13 or later | Windows 10 (2004) or later |
+| --- | --- | --- |
+| **Architectures** | Universal (Apple silicon and Intel) | x64 and ARM64 |
+| **Get it** | Homebrew or DMG | Build from source, or the installer once it is in [Releases](../../releases) |
+
+### macOS
 
 ```bash
 brew tap JYe16/tap
-brew trust --tap JYe16/tap        # recent Homebrew requires explicit trust for third-party taps
+brew trust --tap JYe16/tap
 brew install --cask mdeditor
 ```
 
-### DMG
+Or download `MDEditor-<version>.dmg` from [Releases](../../releases) and drag the app into Applications.
 
-Download `MDEditor-<version>.dmg` from the [Releases](../../releases) page, open it and drag **MDEditor**
-into Applications.
+<details>
+<summary>If macOS refuses to open the app</summary>
 
-### First launch
+MDEditor is ad-hoc signed but not notarized. The Homebrew cask clears the quarantine flag for you. After a DMG install, either go to **System Settings → Privacy & Security** and click **Open Anyway**, or run:
 
-MDEditor is **ad-hoc signed but not notarized** (there is no paid Apple Developer account behind it).
-The Homebrew cask clears the download quarantine flag for you. If you installed from the DMG and macOS refuses to
-open the app the first time, either:
+```bash
+xattr -dr com.apple.quarantine /Applications/MDEditor.app
+```
 
-- go to System Settings → Privacy & Security, scroll down and click **Open Anyway** next to MDEditor, or
-- run once in Terminal: `xattr -dr com.apple.quarantine /Applications/MDEditor.app`
+</details>
+
+### Windows
+
+> [!NOTE]
+> Windows packages are not in Releases yet: the current release contains only the macOS DMG. Until the next tagged release, [build the installer from source](#windows-1).
+
+Run the installer. It asks whether to install for you only (no administrator rights needed) or for all users, and lets you pick any folder. .NET and the Windows App SDK are bundled. The preview needs the WebView2 Runtime, which Windows 11 already has; on other systems the installer offers to download it. ARM64 packages are built but have not yet been tested on real hardware.
+
+<details>
+<summary>SmartScreen, default apps and security software</summary>
+
+- The installer is not code-signed. If SmartScreen appears, choose **More info → Run anyway**.
+- Setup adds MDEditor to "Open with". To make it the default, use **Settings → Apps → Default apps → MDEditor**; Windows reserves that choice for the user.
+- Some security software blocks "Open with" registration. MDEditor still installs and works; to open a file with it, use **Open with → Choose another app** and browse to `MDEditor.exe`.
+
+</details>
 
 ## Features
 
-- **Split live preview** (default), or editor-only / preview-only: `⌘1` `⌘2` `⌘3`, or the toolbar buttons
-- **Scroll sync aligned by source line:** scroll either side and the other follows; clicking a `#anchor` link in the
-  preview also jumps the editor
-- GitHub-flavored Markdown: tables, task lists, strikethrough, autolinks, `> [!NOTE]` alerts, YAML front matter
-- Syntax highlighting in code blocks (43 languages, including Swift, Python, LaTeX, MATLAB, Julia…)
-- Math (KaTeX): inline `$E=mc^2$` and display `$$ … $$`; prices such as `$5 and $10` are not mistaken for math
-- Editor syntax coloring (headings, bold/italic, code, links, lists, quotes…), follows light / dark mode
-- Pressing Return continues lists / tasks / quotes (Return on an empty item ends the list); `Tab` / `⇧Tab` indent lists
-- Input-method friendly: nothing is re-highlighted or re-rendered while you are composing (pinyin, kana…)
-- Find & replace (`⌘F`), print / export PDF (`⌘P`), zoom (`⌘+` `⌘-` `⌘0`), word count and reading time
-  (CJK counted per character)
-- Relative image paths resolve against the document's folder; external links open in your default browser;
-  relative `.md` links open in MDEditor
-- Safe: the preview is sanitized with DOMPurify, so `<script>` etc. in a document never runs
-- UI languages: English and Simplified Chinese (follows the system)
+**Writing**
+- Editor syntax colouring that follows light and dark mode
+- Return continues lists, task lists and quotes; Return on an empty item ends them
+- Tab and Shift+Tab indent lists and selected lines
+- Find and replace, zoom, word count and reading time
 
-Not supported yet: Mermaid diagrams, footnotes, emoji shortcodes.
+**Preview**
+- GitHub-flavoured Markdown: tables, task lists, strikethrough, autolinks and `> [!NOTE]` alerts
+- YAML front matter
+- Code highlighting in 43 languages, including Swift, Python, LaTeX, MATLAB and Julia
+- KaTeX math, inline `$E=mc^2$` and display `$$ … $$`; prices such as `$5 and $10` stay plain text
+- Incremental rendering: only the changed blocks rebuild, so there is no flicker and images don't reload
 
-### Shortcuts
+**Files and safety**
+- Editor only, split and preview only views
+- Print and PDF export
+- Relative images resolve against the document's folder, and relative `.md` links open in MDEditor
+- The preview is sanitized with DOMPurify, so a `<script>` in a document never runs
+- Links to executables are never launched: MDEditor only shows them in Finder or Explorer
+- English and Simplified Chinese interface, following the system language
 
-| Action | Shortcut | | Action | Shortcut |
-| --- | --- | --- | --- | --- |
-| Bold | `⌘B` | | Heading 1 / 2 / 3 | `⌥⌘1` `⌥⌘2` `⌥⌘3` |
-| Italic | `⌘I` | | Quote | `⌘'` |
-| Strikethrough | `⇧⌘X` | | Bulleted list | `⇧⌘8` |
-| Inline code | `⌥⌘C` | | Task list | `⌥⌘T` |
-| Link | `⌘K` | | Code block | `⌥⌘K` |
+Not supported yet: Mermaid diagrams, footnotes and emoji shortcodes.
+
+## Shortcuts
+
+| Action | macOS | Windows |
+| --- | --- | --- |
+| Editor / Split / Preview | `⌘1` `⌘2` `⌘3` | `Ctrl+Shift+1` `2` `3` |
+| Bold / Italic | `⌘B` `⌘I` | `Ctrl+B` `Ctrl+I` |
+| Strikethrough | `⇧⌘X` | `Ctrl+Shift+X` |
+| Inline code | `⌥⌘C` | `Ctrl+E` |
+| Link | `⌘K` | `Ctrl+K` |
+| Heading 1 / 2 / 3 | `⌥⌘1` `2` `3` | `Ctrl+1` `2` `3` |
+| Quote | `⌘'` | `Ctrl+Shift+Q` |
+| Bulleted list | `⇧⌘8` | `Ctrl+Shift+L` |
+| Task list | `⌥⌘T` | `Ctrl+Shift+T` |
+| Code block | `⌥⌘K` | `Ctrl+Shift+K` |
+| Find | `⌘F` | `Ctrl+F` |
+| Replace | `⌥⌘F` | `Ctrl+H` |
+| Print | `⌘P` | `Ctrl+P` |
+| Zoom in / out / reset | `⌘+` `⌘-` `⌘0` | `Ctrl+=` `Ctrl+-` `Ctrl+0` |
 
 ## Build from source
 
-Needs Xcode (or the Command Line Tools). No Node required: the rendering libraries are checked in under
-`Resources/preview/vendor/`.
+The rendering libraries are checked in under `Resources/preview/vendor/`, so neither platform needs Node.
+
+### macOS
+
+Requires Xcode or the Command Line Tools.
 
 ```bash
-./scripts/build.sh                     # build/MDEditor.app (universal, ad-hoc signed)
-./scripts/make-dmg.sh                  # build/MDEditor-<version>.dmg
-VERSION=1.1.0 ./scripts/make-dmg.sh    # choose the version number
-./scripts/test.sh                      # headless regression tests for the editing commands (39)
+./scripts/build.sh      # build/MDEditor.app
+./scripts/make-dmg.sh   # build/MDEditor-<version>.dmg
+./scripts/test.sh       # editing-command regression tests
 ```
 
-For development, `swift build && swift run` from the repository root also works (the preview page is then read from
-`Resources/preview`).
+### Windows
 
-## Repository layout
+Requires the .NET 10 SDK and, for the installer, [Inno Setup 6](https://jrsoftware.org/isinfo.php). Run these from `windows/`:
 
-```
-Package.swift
-Sources/MDEditor/
-  MDEditorApp.swift          App entry, menu commands (View / Format / Find / Print)
-  MarkdownDocument.swift     FileDocument: reads/writes .md (UTF-8, common legacy encodings)
-  ContentView.swift          Main UI: toolbar switcher, status bar, word count
-  SplitEditorView.swift      Split container: editor + WKWebView + scroll sync + render scheduling
-  MarkdownTextView.swift     NSTextView subclass: list continuation, Tab, formatting commands
-  MarkdownHighlighter.swift  Editor syntax coloring
-Resources/
-  Info.plist                 .md file-type association
-  preview/                   Preview page: index.html, app.js (incremental render), vendor/ (marked, DOMPurify, highlight.js, KaTeX…)
-  *.lproj/                   Localization
-  AppIcon.icns, AppIcon.png
-scripts/                     build.sh, make-dmg.sh, make-icon.swift, test.sh, release helpers
-Tests/EditingTests/          Headless regression tests
-windows/                     Windows (WinUI 3) version — in preparation
-examples/sample.md           Feature demo document
+```bash
+./scripts/build.ps1
 ```
 
-Third-party libraries and their licenses: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+```bash
+./scripts/publish.ps1
+```
 
-## Implementation notes
+```bash
+./scripts/make-installer.ps1
+```
 
-- The editor uses **TextKit 1**: scroll sync needs exact line geometry. The text container width is maintained by
-  `MarkdownTextView` with a lower bound, because TextKit 1 lays out forever (100 % CPU) when the container is no wider
-  than its own padding — which happens while a window is still being laid out.
-- The preview renders **incrementally per top-level block**: an edit rebuilds only the affected blocks, the rest of the
-  DOM stays put, so there is no flicker and images don't reload.
-- Scroll sync between the page and the app uses **source line numbers** as the coordinate, not scroll percentages, so it
-  stays aligned in long documents.
+The installer is written to `windows/artifacts/`. More detail is in [`windows/README.md`](windows/README.md).
+
+## How it works
+
+```mermaid
+flowchart LR
+    M["macOS editor<br>Swift · NSTextView"] -->|Markdown + source line| P
+    W["Windows editor<br>C# · RichEditBox"] -->|Markdown + source line| P
+    P["Shared preview<br>Resources/preview<br>marked · DOMPurify · highlight.js · KaTeX"]
+    P -->|scrolled to source line| M
+    P -->|scrolled to source line| W
+```
+
+The two editors are separate native programs. The preview is one HTML page, hosted in WKWebView on macOS and WebView2 on Windows, so rendering is identical on both.
+
+| Path | Contents |
+| --- | --- |
+| `Sources/MDEditor/` | macOS app |
+| `windows/src/MDEditor.App/` | Windows app |
+| `windows/src/MDEditor.Core/` | Windows editing logic, free of UI code and testable on any OS |
+| `Resources/preview/` | Shared preview page and bundled libraries |
+| `examples/sample.md` | A document that exercises every feature |
 
 ## Contributing
 
-Issues and pull requests are welcome. Please run `./scripts/test.sh` before sending a change that touches editing
-behavior. Releases are described in [docs/RELEASING.md](docs/RELEASING.md).
+Issues and pull requests are welcome. Before sending a change to editing behaviour, please run the tests for the platform you touched: `./scripts/test.sh` on macOS, `dotnet test windows/tests/MDEditor.Core.Tests` for the Windows logic. The release process is in [docs/RELEASING.md](docs/RELEASING.md).
 
 ## License
 
-[MIT](LICENSE) © 2026 JYe16. Bundled third-party libraries keep their own licenses, see
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+[MIT](LICENSE) © 2026 JYe16. Bundled libraries keep their own licenses: see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [the Windows notices](windows/THIRD_PARTY_NOTICES.md).
