@@ -12,6 +12,9 @@
  *   ready            - scripts are loaded
  *   scroll {line, bottom} - the user scrolled the preview; editor should follow
  *   link  "href"     - a link was clicked
+ *   jump {line, column, length} - the user double-clicked rendered text; the editor should put its
+ *                      caret there. line is 0-based, column is a UTF-16 offset within that line and
+ *                      length is the number of UTF-16 units to select (0 = just place the caret).
  */
 (function () {
   const content = document.getElementById('content');
@@ -141,7 +144,7 @@
 
   // ---------------------------------------------------------------- incremental rendering
 
-  /** @type {{key:string, startLine:number, tok:any, fm?:string, els:Element[]}[]} */
+  /** @type {{key:string, startLine:number, raw:string, tok:any, fm?:string, els:Element[]}[]} */
   let blocks = [];
   let totalLines = 1;
 
@@ -196,10 +199,10 @@
 
     const next = [];
     let line = offset;
-    if (fm !== null) next.push({ key: 'fm\u0001' + fm, startLine: 0, fm, els: [] });
+    if (fm !== null) next.push({ key: 'fm\u0001' + fm, startLine: 0, raw: '---\n' + fm + '\n---\n', fm, els: [] });
     for (const tok of tokens) {
       const nl = (tok.raw.match(/\n/g) || []).length;
-      if (tok.type !== 'space') next.push({ key: tok.raw + '\u0001' + linksSig, startLine: line, tok, els: [] });
+      if (tok.type !== 'space') next.push({ key: tok.raw + '\u0001' + linksSig, startLine: line, raw: tok.raw, tok, els: [] });
       line += nl;
     }
     totalLines = Math.max(line + 1, 1);
@@ -311,12 +314,92 @@
     });
   }, { passive: true });
 
+  // ---------------------------------------------------------------- jump to source (double-click)
+
+  const blockOf = (node) => blocks.find((b) => b.els.some((el) => el.contains(node))) || null;
+
+  /** Index of the n-th (0-based) non-overlapping occurrence of `needle` in `hay`, or -1. */
+  function nthIndexOf(hay, needle, n) {
+    let from = 0;
+    for (let i = 0; ; i++) {
+      const at = hay.indexOf(needle, from);
+      if (at < 0 || i === n) return at;
+      from = at + needle.length;
+    }
+  }
+
+  function countOccurrences(hay, needle) {
+    let n = 0;
+    for (let at = hay.indexOf(needle); at >= 0; at = hay.indexOf(needle, at + needle.length)) n++;
+    return n;
+  }
+
+  /**
+   * Finds the Markdown source that produced the rendered node under a double-click, as
+   * {line, column, length}. Prefers the exact word the double-click selected: the n-th occurrence of
+   * that word in the block's rendered text is the n-th occurrence in the block's source. Falls back to
+   * the line implied by how far down the block the pointer is.
+   */
+  function locateSource(node, clientY) {
+    const block = blockOf(node);
+    if (!block) return null;
+    const raw = block.raw;
+    let at = -1, length = 0;
+
+    // Math: the TeX is in the source verbatim.
+    const math = node.closest && node.closest('[data-tex]');
+    if (math) {
+      const tex = math.getAttribute('data-tex');
+      const same = block.els
+        .flatMap((el) => [...(el.matches('[data-tex]') ? [el] : []), ...el.querySelectorAll('[data-tex]')])
+        .filter((m) => m.getAttribute('data-tex') === tex);
+      at = nthIndexOf(raw, tex, Math.max(same.indexOf(math), 0));
+      if (at >= 0) length = tex.length;
+    }
+
+    // The word the browser selected on double-click.
+    if (at < 0) {
+      const sel = window.getSelection();
+      const range = sel && sel.rangeCount && !sel.isCollapsed ? sel.getRangeAt(0) : null;
+      const word = range ? range.toString().trim() : ''; // Range, not Selection: independent of layout
+      if (word && word.length <= 120 && !/[\r\n]/.test(word)) {
+        if (blockOf(range.startContainer) === block) {
+          const head = document.createRange();
+          head.setStart(block.els[0], 0);
+          head.setEnd(range.startContainer, range.startOffset);
+          at = nthIndexOf(raw, word, countOccurrences(head.toString(), word));
+          if (at >= 0) length = word.length;
+        }
+      }
+    }
+
+    if (at >= 0) {
+      const before = raw.slice(0, at);
+      const newlines = (before.match(/\n/g) || []).length;
+      return { line: block.startLine + newlines, column: at - (before.lastIndexOf('\n') + 1), length };
+    }
+
+    const top = block.els[0].getBoundingClientRect().top;
+    const bottom = block.els[block.els.length - 1].getBoundingClientRect().bottom;
+    const lines = raw.replace(/\n+$/, '').split('\n').length;
+    const frac = clamp((clientY - top) / Math.max(bottom - top, 1), 0, 0.999);
+    return { line: block.startLine + Math.floor(frac * lines), column: 0, length: 0 };
+  }
+
+  document.addEventListener('dblclick', (e) => {
+    const node = e.target;
+    if (!node || !node.closest || node.closest('a')) return; // a link already acted on the first click
+    const where = locateSource(node, e.clientY);
+    if (where) post('jump', where);
+  });
+
   // ---------------------------------------------------------------- links
 
   document.addEventListener('click', (e) => {
     const a = e.target.closest && e.target.closest('a');
     if (!a) return;
     e.preventDefault();
+    if (e.detail > 1) return; // second click of a double-click: the first one already opened the link
     const href = a.getAttribute('href');
     if (!href) return;
     if (href.startsWith('#')) {

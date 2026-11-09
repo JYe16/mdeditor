@@ -75,6 +75,9 @@ struct SplitEditorView: NSViewRepresentable {
     // MARK: - Coordinator
 
     final class Coordinator: NSObject, NSTextViewDelegate, NSSplitViewDelegate, WKNavigationDelegate, WKScriptMessageHandler {
+        /// Messages app.js posts to the native side (see the header comment in Resources/preview/app.js).
+        private static let scriptMessages = ["ready", "scroll", "link", "jump"]
+
         var parent: SplitEditorView
 
         private let highlighter: MarkdownHighlighter
@@ -159,7 +162,7 @@ struct SplitEditorView: NSViewRepresentable {
 
             // --- preview
             let config = WKWebViewConfiguration()
-            for name in ["ready", "scroll", "link"] {
+            for name in Self.scriptMessages {
                 config.userContentController.add(WeakScriptHandler(self), name: name)
             }
             let web = WKWebView(frame: .zero, configuration: config)
@@ -199,7 +202,7 @@ struct SplitEditorView: NSViewRepresentable {
         func teardown() {
             NotificationCenter.default.removeObserver(self)
             renderWork?.cancel()
-            for name in ["ready", "scroll", "link"] {
+            for name in Self.scriptMessages {
                 webView?.configuration.userContentController.removeScriptMessageHandler(forName: name)
             }
             webView?.navigationDelegate = nil
@@ -403,6 +406,39 @@ struct SplitEditorView: NSViewRepresentable {
             scrollView.reflectScrolledClipView(clip)
         }
 
+        /// Double-click in the preview: select the matching source text (or just place the caret) and make sure
+        /// it is on screen. `line` is 0-based; `column` and `length` are UTF-16 units, like NSString.
+        private func jumpEditor(toLine line: Int, column: Int, length: Int) {
+            ensureLineStarts()
+            let total = textView.textStorage!.length
+            let index = min(max(line, 0), lineStarts.count - 1)
+            let start = min(lineStarts[index], total)
+            // End of the line, excluding its newline.
+            let end = max(index + 1 < lineStarts.count ? lineStarts[index + 1] - 1 : total, start)
+            let col = min(max(column, 0), end - start)
+            let range = NSRange(location: start + col, length: min(max(length, 0), end - start - col))
+
+            // Scroll only when the line is near or past an edge, and keep it from waking scroll sync:
+            // the preview is where the user is looking, so it must not move under their pointer.
+            let clip = scrollView.contentView
+            let rect = lineRect(index)
+            let visible = clip.bounds
+            let margin = rect.height * 2
+            if rect.minY < visible.minY + margin || rect.maxY > visible.maxY - margin {
+                let maxY = max(textView.frame.height - visible.height, 0)
+                let y = min(max(rect.midY - visible.height / 2, 0), maxY)
+                suppressEditorScrollUntil = Date().addingTimeInterval(0.15)
+                clip.scroll(to: NSPoint(x: 0, y: y))
+                scrollView.reflectScrolledClipView(clip)
+            }
+
+            textView.window?.makeFirstResponder(textView)
+            textView.setSelectedRange(range)
+            // The same bounce Find uses, so the eye lands on the spot.
+            let flash = range.length > 0 ? range : NSRange(location: start, length: end - start)
+            if flash.length > 0 { textView.showFindIndicator(for: flash) }
+        }
+
         @objc private func editorScrolled(_ note: Notification) {
             guard pageReady, appliedMode?.showsPreview == true, Date() >= suppressEditorScrollUntil else { return }
             let pos = editorPosition()
@@ -427,6 +463,15 @@ struct SplitEditorView: NSViewRepresentable {
                 scrollEditor(toLine: line, bottom: (body["bottom"] as? Bool) ?? false)
             case "link":
                 if let href = message.body as? String { openLink(href) }
+            case "jump":
+                // Double-click in the preview. With the editor hidden (preview-only) there is nowhere to jump to,
+                // and double-click should keep meaning "select this word".
+                guard appliedMode?.showsEditor == true,
+                      let body = message.body as? [String: Any],
+                      let line = (body["line"] as? NSNumber)?.intValue else { return }
+                jumpEditor(toLine: line,
+                           column: (body["column"] as? NSNumber)?.intValue ?? 0,
+                           length: (body["length"] as? NSNumber)?.intValue ?? 0)
             default:
                 break
             }
