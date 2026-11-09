@@ -92,6 +92,7 @@ xattr -dr com.apple.quarantine /Applications/MDEditor.app
 - 代码高亮，支持 43 种语言，包括 Swift、Python、LaTeX、MATLAB 和 Julia
 - KaTeX 数学公式，行内 `$E=mc^2$`，块级 `$$ … $$`；`$5 和 $10` 这样的价格不会被当成公式
 - 增量渲染：只重建改动的块，不闪烁，图片也不会重新加载
+- 在预览里双击某个词，编辑器会跳到它的 Markdown 源码并选中：只在必要时才滚动，预览保持不动。目前仅 macOS 版支持，Windows 版是下一步
 
 **文件与安全**
 - 仅编辑、分栏、仅预览三种视图
@@ -100,6 +101,12 @@ xattr -dr com.apple.quarantine /Applications/MDEditor.app
 - 预览经 DOMPurify 过滤，文档里的 `<script>` 不会执行
 - 指向可执行文件的链接绝不会被运行，只会在访达或资源管理器中显示
 - 英文和简体中文界面，跟随系统语言
+
+<p align="center">
+  <img src="docs/images/macos-jump.png" alt="macOS 窗口：在预览里双击 fib 后，编辑器中的 fib 被选中" width="760">
+</p>
+
+<sub>macOS 版。在右侧代码块里双击 `fib`，左侧编辑器选中了对应的源码，并滚动到让这一行居中。预览没有移动。</sub>
 
 暂不支持：Mermaid 图表、脚注和 emoji 短代码。
 
@@ -163,6 +170,7 @@ flowchart LR
     P["共用预览页<br>Resources/preview<br>marked · DOMPurify · highlight.js · KaTeX"]
     P -->|滚动到的源码行| M
     P -->|滚动到的源码行| W
+    P -.->|双击：行号和列号| M
 ```
 
 两个编辑器是各自独立的原生程序。预览是同一个 HTML 页面，在 macOS 上由 WKWebView 承载，在 Windows 上由 WebView2 承载，所以两边的渲染结果一致。

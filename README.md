@@ -92,6 +92,7 @@ Run the installer. It asks whether to install for you only (no administrator rig
 - Code highlighting in 43 languages, including Swift, Python, LaTeX, MATLAB and Julia
 - KaTeX math, inline `$E=mc^2$` and display `$$ … $$`; prices such as `$5 and $10` stay plain text
 - Incremental rendering: only the changed blocks rebuild, so there is no flicker and images don't reload
+- Double-click a word in the preview to jump to its source: the editor selects that exact text and scrolls only if it has to, and the preview stays where it is. macOS for now; the Windows app is next
 
 **Files and safety**
 - Editor only, split and preview only views
@@ -100,6 +101,12 @@ Run the installer. It asks whether to install for you only (no administrator rig
 - The preview is sanitized with DOMPurify, so a `<script>` in a document never runs
 - Links to executables are never launched: MDEditor only shows them in Finder or Explorer
 - English and Simplified Chinese interface, following the system language
+
+<p align="center">
+  <img src="docs/images/macos-jump.png" alt="macOS window: the word fib is selected in the editor after being double-clicked in the preview" width="760">
+</p>
+
+<sub>macOS. Double-clicking `fib` in the code block on the right selected it in the editor on the left, which scrolled to centre that line. The preview did not move.</sub>
 
 Not supported yet: Mermaid diagrams, footnotes and emoji shortcodes.
 
@@ -163,6 +170,7 @@ flowchart LR
     P["Shared preview<br>Resources/preview<br>marked · DOMPurify · highlight.js · KaTeX"]
     P -->|scrolled to source line| M
     P -->|scrolled to source line| W
+    P -.->|double-click: line and column| M
 ```
 
 The two editors are separate native programs. The preview is one HTML page, hosted in WKWebView on macOS and WebView2 on Windows, so rendering is identical on both.
