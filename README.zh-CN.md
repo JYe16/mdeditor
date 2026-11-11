@@ -92,7 +92,7 @@ xattr -dr com.apple.quarantine /Applications/MDEditor.app
 - 代码高亮，支持 43 种语言，包括 Swift、Python、LaTeX、MATLAB 和 Julia
 - KaTeX 数学公式，行内 `$E=mc^2$`，块级 `$$ … $$`；`$5 和 $10` 这样的价格不会被当成公式
 - 增量渲染：只重建改动的块，不闪烁，图片也不会重新加载
-- 在预览里双击某个词，编辑器会跳到它的 Markdown 源码并选中：只在必要时才滚动，预览保持不动。目前仅 macOS 版支持，Windows 版是下一步
+- 在预览里双击某个词，编辑器会跳到它的 Markdown 源码并选中：只在必要时才滚动，预览保持不动
 
 **文件与安全**
 - 仅编辑、分栏、仅预览三种视图

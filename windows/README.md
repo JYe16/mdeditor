@@ -1,6 +1,8 @@
 # MDEditor for Windows
 
 Native WinUI 3 version of MDEditor: Markdown editor on the left, live preview on the right, scroll-synced by source line.
+Double-click a word in the preview and the editor selects that word's Markdown source: it scrolls only if the line is
+near or past an edge, and the preview stays where it is. (With the editor hidden, double-click just selects the word.)
 The preview is the same page the macOS app uses (`Resources/preview`), hosted in WebView2.
 
 Requires Windows 10 version 2004 (build 19041) or later, x64 or ARM64, and the Microsoft Edge WebView2 Runtime
@@ -55,7 +57,7 @@ Each file opens in its own window, in the already-running process when there is 
 
 | Switch | Effect |
 | --- | --- |
-| `--smoke-test[=report.txt]` | Runs a real window through the checks that cannot run headless; exit code 0 or 1 |
+| `--smoke-test[=report.txt]` | Runs a real window through the checks that cannot run headless; exit code 0 or 1. With a report path it also writes `report.txt.jump-*.png` screenshots of the editor after a jump from the preview |
 | `--lang=zh-CN` | Overrides the display language for this run |
 | `--theme=dark` / `--theme=light` | Overrides the system theme for this run |
 

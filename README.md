@@ -92,7 +92,7 @@ Run the installer. It asks whether to install for you only (no administrator rig
 - Code highlighting in 43 languages, including Swift, Python, LaTeX, MATLAB and Julia
 - KaTeX math, inline `$E=mc^2$` and display `$$ … $$`; prices such as `$5 and $10` stay plain text
 - Incremental rendering: only the changed blocks rebuild, so there is no flicker and images don't reload
-- Double-click a word in the preview to jump to its source: the editor selects that exact text and scrolls only if it has to, and the preview stays where it is. macOS for now; the Windows app is next
+- Double-click a word in the preview to jump to its source: the editor selects that exact text and scrolls only if it has to, and the preview stays where it is
 
 **Files and safety**
 - Editor only, split and preview only views
