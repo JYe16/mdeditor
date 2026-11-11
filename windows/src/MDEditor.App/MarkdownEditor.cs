@@ -613,6 +613,42 @@ internal sealed class MarkdownEditor
         scroller.ChangeView(null, y, null, disableAnimation: true);
     }
 
+    /// <summary>
+    /// Double-click in the preview: select the matching source text (or just place the caret) and make sure it is on
+    /// screen. Mirrors jumpEditor(toLine:column:length:) in SplitEditorView.swift. Offsets are model coordinates.
+    /// </summary>
+    public void JumpTo(int line, int column, int length)
+    {
+        if (_composing) return; // never move the caret under an active IME composition
+        var target = JumpTarget.Resolve(Lines, _text.Length, line, column, length);
+
+        // Scroll only when the line is near or past an edge, and keep it from waking scroll sync: the preview is
+        // where the user is looking, so it must not move under their pointer. The panes drift apart until the
+        // next manual scroll; that is intended.
+        if (Scroller is { } scroller)
+        {
+            var (top, height) = LineRect(target.Line);
+            double visibleTop = scroller.VerticalOffset;
+            double visibleBottom = visibleTop + scroller.ViewportHeight;
+            double margin = height * 2;
+            if (top < visibleTop + margin || top + height > visibleBottom - margin)
+            {
+                double y = Math.Clamp(top + height / 2 - scroller.ViewportHeight / 2, 0, scroller.ScrollableHeight);
+                if (Math.Abs(visibleTop - y) >= 0.5)
+                {
+                    _suppressScrollUntil = _clock.ElapsedMilliseconds + 150;
+                    scroller.ChangeView(null, y, null, disableAnimation: true);
+                }
+            }
+        }
+
+        _undo.BreakCoalescing();
+        // Focus first: an unfocused RichEditBox hides its selection. RevealSelection() is deliberately not called,
+        // it would scroll by its own rules and fight the edge-margin rule above.
+        Focus();
+        Select(target.Start, target.Length);
+    }
+
     public void ScrollToTop()
     {
         Select(0, 0);

@@ -79,6 +79,8 @@ public sealed partial class MainWindow : Window
         Editor.WheelZoom += delta => SetZoom(Settings.Zoom + delta);
 
         Preview.ScrollRequested += (line, bottom) => { if (ShowsEditor) Editor.ScrollToLine(line, bottom); };
+        // Double-click in the preview jumps to its source. With the editor hidden it must keep meaning "select this word".
+        Preview.JumpRequested += (line, column, length) => { if (ShowsEditor) Editor.JumpTo(line, column, length); };
         Preview.LinkClicked += OpenLink;
         Preview.KeyForwarded += OnPreviewKey;
         Preview.FilesDropped += files => { foreach (string f in files) App.Instance!.OpenFile(f, this); };
@@ -609,6 +611,33 @@ public sealed partial class MainWindow : Window
     internal void SetZoomForTest(double zoom) => SetZoom(zoom);
 
     internal void ReplaceAllForTest() => OnReplaceAllClick(this, new RoutedEventArgs());
+
+    /// <summary>Gives keyboard focus to the preview, the state after a real click there.</summary>
+    internal void FocusPreviewForTest() => Web.Focus(FocusState.Programmatic);
+
+    internal object? FocusedElementForTest => FocusManager.GetFocusedElement(Root.XamlRoot);
+
+    internal bool PreviewHasFocusForTest => ReferenceEquals(FocusedElementForTest, Web);
+
+    /// <summary>
+    /// Writes the XAML content of the window (editor, toolbar, status bar; the WebView2 surface is not part of it)
+    /// to a PNG, so a human can look at things the tests cannot judge, such as whether a selection is visible.
+    /// </summary>
+    internal async Task CaptureForTestAsync(string path)
+    {
+        var bitmap = new RenderTargetBitmap();
+        await bitmap.RenderAsync(Root);
+        var pixels = await bitmap.GetPixelsAsync();
+        using var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+        var encoder = await Windows.Graphics.Imaging.BitmapEncoder.CreateAsync(Windows.Graphics.Imaging.BitmapEncoder.PngEncoderId, stream);
+        encoder.SetPixelData(Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8, Windows.Graphics.Imaging.BitmapAlphaMode.Premultiplied,
+            (uint)bitmap.PixelWidth, (uint)bitmap.PixelHeight, 96, 96, System.Runtime.InteropServices.WindowsRuntime.WindowsRuntimeBufferExtensions.ToArray(pixels));
+        await encoder.FlushAsync();
+        stream.Seek(0);
+        var bytes = new byte[stream.Size];
+        await stream.ReadAsync(System.Runtime.InteropServices.WindowsRuntime.WindowsRuntimeBufferExtensions.AsBuffer(bytes), (uint)bytes.Length, Windows.Storage.Streams.InputStreamOptions.None);
+        await File.WriteAllBytesAsync(path, bytes);
+    }
 
     // ---- Files -------------------------------------------------------------------------------
 

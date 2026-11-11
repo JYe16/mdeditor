@@ -352,3 +352,116 @@ public class SettingsTests
     [InlineData(5, 3.0)]
     public void ZoomClamps(double input, double want) => Assert.Equal(want, AppSettings.ClampZoom(input));
 }
+
+public class JumpTargetTests
+{
+    private static JumpTarget Resolve(string text, int line, int column, int length) =>
+        JumpTarget.Resolve(new LineIndex(text), text.Length, line, column, length);
+
+    [Fact]
+    public void LineInTheMiddle()
+    {
+        // "aaa\nbbbb\ncc": line 1 starts at 4 and ends at 8 (before its \n).
+        var t = Resolve("aaa\nbbbb\ncc", 1, 1, 2);
+        Assert.Equal(new JumpTarget(1, 5, 2, 4, 8), t);
+    }
+
+    [Fact]
+    public void FirstLine()
+    {
+        var t = Resolve("aaa\nbbbb\ncc", 0, 0, 3);
+        Assert.Equal(new JumpTarget(0, 0, 3, 0, 3), t);
+    }
+
+    [Fact]
+    public void LastLineWithoutTrailingNewline()
+    {
+        var t = Resolve("aaa\nbbbb\ncc", 2, 1, 1);
+        Assert.Equal(new JumpTarget(2, 10, 1, 9, 11), t);
+    }
+
+    [Fact]
+    public void LastLineIsEmptyAfterTrailingNewline()
+    {
+        var t = Resolve("a\n", 1, 0, 0);
+        Assert.Equal(new JumpTarget(1, 2, 0, 2, 2), t);
+        // A selection on the empty last line collapses to a caret.
+        Assert.Equal(0, Resolve("a\n", 1, 0, 5).Length);
+    }
+
+    [Fact]
+    public void LinePastTheEndClampsToTheLastLine()
+    {
+        var t = Resolve("aaa\nbbbb\ncc", 99, 0, 0);
+        Assert.Equal(2, t.Line);
+        Assert.Equal(9, t.Start);
+    }
+
+    [Fact]
+    public void NegativeLineClampsToTheFirstLine()
+    {
+        var t = Resolve("aaa\nbbbb\ncc", -5, 1, 1);
+        Assert.Equal(new JumpTarget(0, 1, 1, 0, 3), t);
+    }
+
+    [Fact]
+    public void ColumnPastTheLineEndStopsAtTheLineEnd()
+    {
+        var t = Resolve("aaa\nbbbb\ncc", 0, 50, 4);
+        Assert.Equal(new JumpTarget(0, 3, 0, 0, 3), t); // before the \n, nothing left to select
+    }
+
+    [Fact]
+    public void NegativeColumnAndLengthClampToZero()
+    {
+        var t = Resolve("aaa\nbbbb\ncc", 1, -3, -1);
+        Assert.Equal(new JumpTarget(1, 4, 0, 4, 8), t);
+    }
+
+    [Fact]
+    public void LengthRunningPastTheLineEndIsCut()
+    {
+        var t = Resolve("aaa\nbbbb\ncc", 1, 2, 100);
+        Assert.Equal(new JumpTarget(1, 6, 2, 4, 8), t);
+    }
+
+    [Fact]
+    public void EmptyLineYieldsACaret()
+    {
+        var t = Resolve("a\n\nb", 1, 0, 3);
+        Assert.Equal(new JumpTarget(1, 2, 0, 2, 2), t);
+    }
+
+    [Fact]
+    public void EmptyDocument()
+    {
+        Assert.Equal(new JumpTarget(0, 0, 0, 0, 0), Resolve("", 0, 0, 0));
+        Assert.Equal(new JumpTarget(0, 0, 0, 0, 0), Resolve("", 7, 7, 7));
+    }
+
+    [Fact]
+    public void OffsetsAreUtf16CodeUnits()
+    {
+        // "中文😀 end": 中 文 = 1 unit each, 😀 = 2 units (surrogate pair), then " end".
+        const string text = "x\n中文😀 end\n";
+        var t = Resolve(text, 1, 5, 3);
+        Assert.Equal("end", text.Substring(t.Start, t.Length));
+        Assert.Equal(2 + 5, t.Start);
+
+        // Selecting just the emoji takes both code units.
+        var emoji = Resolve(text, 1, 2, 2);
+        Assert.Equal("😀", text.Substring(emoji.Start, emoji.Length));
+    }
+
+    [Fact]
+    public void SelectionNeverIncludesTheNewline()
+    {
+        const string text = "ab\ncd\n";
+        for (int line = 0; line < 3; line++)
+        {
+            var t = Resolve(text, line, 0, 100);
+            Assert.DoesNotContain('\n', text.Substring(t.Start, t.Length));
+            Assert.True(t.Start + t.Length <= t.LineEnd);
+        }
+    }
+}

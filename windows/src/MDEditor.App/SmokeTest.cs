@@ -67,6 +67,8 @@ internal sealed class SmokeTest(MainWindow window, string? output)
         await Highlighting();
         await Geometry();
         await PreviewRendering();
+        await JumpToSource();
+        await JumpSampleDocument();
         await FindReplace();
         await Pdf();
         await FileRoundTrip();
@@ -268,6 +270,276 @@ internal sealed class SmokeTest(MainWindow window, string? output)
         Check("over-limit document loads intact", Editor.ControlTextForTest() == huge);
         await WaitFor(() => Editor.StylesSettled);
         Check("over-limit document has no heading colour", !Editor.IsBold(3));
+    }
+
+    // ---- Double-click in the preview jumps to its source (HANDOFF-v1.1 §1) ------------------------
+
+    private async Task JumpToSource()
+    {
+        var doc = new StringBuilder("# Jump test\n\nFirst paragraph with [a link](#jump-test) and mkstart.\n\n");
+        for (int i = 0; i < 80; i++)
+            doc.Append(CultureInfo.InvariantCulture, $"## Section {i}\n\nParagraph for section {i} with marker mk{i}x and more words.\n\n");
+        doc.Append("```text\nalpha\nbeta\ngamma\ndelta\n```\n\nThe end.\n");
+        string text = doc.ToString();
+
+        window.SetZoomForTest(1.0);
+        window.Execute(Cmd.ViewSplit);
+        await Wait(300);
+        Editor.SetDocument(text);
+        await window.Preview.RenderAndWaitAsync();
+        await WaitFor(() => Editor.StylesSettled);
+        await Wait(300);
+
+        // A. Target far from the editor's view. Real mouse input through DevTools, so the browser makes the word
+        //    selection itself, exactly as with a user double-click.
+        const string far = "mk60x";
+        int farAt = text.IndexOf(far, StringComparison.Ordinal);
+        await ScrollPreviewTo(far);
+        await Wait(400);                        // the editor follows the preview...
+        Editor.ScrollToLine(0, bottom: false);  // ...then is parked at the top, where the target is off screen
+        await Wait(400);
+        double editorBefore = Editor.ScrollMetrics().Y, previewBefore = await PreviewScrollY();
+        window.FocusPreviewForTest();           // the state after a real click: keyboard focus is inside WebView2
+        await Wait(100);
+        Check("jump: precondition, the preview owns keyboard focus", window.PreviewHasFocusForTest, window.FocusedElementForTest?.GetType().Name ?? "null");
+        await DoubleClickWord(far);
+        await WaitFor(() => Editor.Selection.Length > 0, 3000);
+        await Wait(400);                        // time for any echo to reach the preview
+        Check("jump: double-click selects the word's source", Editor.Selection == (farAt, far.Length), $"{Editor.Selection} vs ({farAt}, {far.Length})");
+        var (offsetA, extentA, viewportA) = Editor.ScrollMetrics();
+        double lineY = Editor.ContentYForTest(text[..farAt].Count(c => c == '\n'));
+        Check("jump: off-screen line scrolls the editor", offsetA > editorBefore + 200, $"{editorBefore:F0} -> {offsetA:F0}");
+        Check("jump: the line ends up on screen", lineY >= offsetA && lineY <= offsetA + viewportA, $"line y {lineY:F0}, viewport {offsetA:F0}..{offsetA + viewportA:F0}, extent {extentA:F0}");
+        Check("jump: preview did not move", Math.Abs(await PreviewScrollY() - previewBefore) < 1, $"{previewBefore:F1} -> {await PreviewScrollY():F1}");
+        Check("jump: keyboard focus moves from the preview to the editor", ReferenceEquals(window.FocusedElementForTest, Editor.Box),
+            window.FocusedElementForTest?.GetType().Name ?? "null");
+
+        // B. Target already on screen: select it, do not scroll.
+        const string near = "mk61x";
+        int nearAt = text.IndexOf(near, StringComparison.Ordinal);
+        await ScrollPreviewTo(near);            // a programmatic scroll the editor must not follow back into view changes
+        await Wait(400);
+        double steady = Editor.ScrollMetrics().Y;
+        await DoubleClickWord(near);
+        await WaitFor(() => Editor.Selection.Start == nearAt, 3000);
+        await Wait(300);
+        Check("jump: second word is selected", Editor.Selection == (nearAt, near.Length), $"{Editor.Selection} vs ({nearAt}, {near.Length})");
+        Check("jump: on-screen line does not scroll", Math.Abs(Editor.ScrollMetrics().Y - steady) < 0.5,
+            $"{steady:F1} -> {Editor.ScrollMetrics().Y:F1}");
+
+        // C. At 150 % the preview uses CSS zoom: real mouse coordinates and element rectangles must still agree,
+        //    because the fallback path (no word match) turns the pointer height into a source line.
+        window.SetZoomForTest(1.5);
+        await Wait(500);
+        await ScrollPreviewTo("delta");
+        await Wait(300);
+        await JsString("document.addEventListener('mousedown', (e) => { const r = e.target.closest('pre').getBoundingClientRect(); window.__probe = JSON.stringify({ cy: e.clientY, cx: e.clientX, top: r.top, bottom: r.bottom }); }, true); 'ok'");
+        string? box = await JsString("(() => { const r = document.querySelector('#content pre').getBoundingClientRect(); return JSON.stringify({ x: r.left + r.width / 2, y: r.bottom - 6 }); })()");
+        using (var target = JsonDocument.Parse(box ?? "{}"))
+            await DispatchMouse("mousePressed", target.RootElement.GetProperty("x").GetDouble(), target.RootElement.GetProperty("y").GetDouble(), 1);
+        string? probe = await JsString("window.__probe || ''");
+        if (string.IsNullOrEmpty(probe))
+        {
+            Check("jump@150%: mouse coordinates match element rectangles", false, "no mousedown reached the page");
+        }
+        else
+        {
+            using var p = JsonDocument.Parse(probe);
+            double cy = p.RootElement.GetProperty("cy").GetDouble(), top = p.RootElement.GetProperty("top").GetDouble(), bottom = p.RootElement.GetProperty("bottom").GetDouble();
+            using var t = JsonDocument.Parse(box!);
+            double sent = t.RootElement.GetProperty("y").GetDouble();
+            Check("jump@150%: mouse coordinates match element rectangles", Math.Abs(cy - sent) < 1.5 && cy >= top && cy <= bottom,
+                $"sent y {sent:F1}, clientY {cy:F1}, block {top:F1}..{bottom:F1}");
+        }
+        await DispatchMouse("mouseReleased", 0, 0, 1);
+
+        const string code = "delta";
+        int codeAt = text.IndexOf(code, StringComparison.Ordinal);
+        await DoubleClickWord(code);
+        await WaitFor(() => Editor.Selection.Start == codeAt, 3000);
+        await Wait(300);
+        Check("jump@150%: word in a code block", Editor.Selection == (codeAt, code.Length), $"{Editor.Selection} vs ({codeAt}, {code.Length})");
+
+        // The fallback: nothing selected, so only the pointer height in the block counts. Near the bottom of the fenced
+        // block the caret must land on one of its lines, as a caret (no selection) at the start of the line.
+        await JsString("getSelection().removeAllRanges(); const pre = document.querySelector('#content pre'); const r = pre.getBoundingClientRect(); pre.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, clientX: r.left + 20, clientY: r.top + r.height * 0.9 })); 'ok'");
+        int fenceAt = text.IndexOf("```text", StringComparison.Ordinal);
+        int fenceEnd = text.IndexOf("```\n\nThe end.", StringComparison.Ordinal);
+        await WaitFor(() => Editor.Selection.Length == 0 && Editor.Selection.Start != codeAt, 3000);
+        var (caret, caretLength) = Editor.Selection;
+        Check("jump@150%: fallback places a caret inside the block", caretLength == 0 && caret >= fenceAt && caret <= fenceEnd
+            && (caret == 0 || text[caret - 1] == '\n'), $"caret {caret}, block {fenceAt}..{fenceEnd}");
+
+        // D. Preview-only: double-click must keep meaning "select this word". Nothing may change in the editor.
+        window.SetZoomForTest(1.0);
+        window.Execute(Cmd.ViewPreview);
+        await Wait(500);
+        Editor.Select(3, 0);
+        double hiddenOffset = Editor.ScrollMetrics().Y;
+        const string only = "mk10x";
+        await ScrollPreviewTo(only);
+        await Wait(300);
+        double previewOnly = await PreviewScrollY();
+        await DoubleClickWord(only);
+        await Wait(600);
+        Check("jump: preview-only mode leaves the editor alone", Editor.Selection == (3, 0) && Math.Abs(Editor.ScrollMetrics().Y - hiddenOffset) < 0.5, $"{Editor.Selection}");
+        Check("jump: preview keeps its own word selection", await JsString("getSelection().toString().trim()") == only);
+        Check("jump: preview-only does not scroll the preview", Math.Abs(await PreviewScrollY() - previewOnly) < 1);
+        window.Execute(Cmd.ViewSplit);
+        await Wait(500);
+
+        // E. A double-click on a link does not jump (the first click already opened it).
+        Editor.Select(5, 0);
+        double beforeLink = Editor.ScrollMetrics().Y;
+        await JsString("const a = document.querySelector('#content a'); getSelection().selectAllChildren(a); a.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, detail: 2 })); 'ok'");
+        await Wait(400);
+        Check("jump: double-click on a link does not move the editor", Editor.Selection == (5, 0) && Math.Abs(Editor.ScrollMetrics().Y - beforeLink) < 0.5, $"{Editor.Selection}");
+
+        window.SetZoomForTest(1.0);
+    }
+
+    /// <summary>
+    /// HANDOFF-v1.1 §4 "by hand" list, run with real double-clicks on examples/sample.md at 100 % and 150 %, light and
+    /// dark: a word in the Swift block, a Chinese word, a table cell, a heading, a quote far from the editor's view and
+    /// the inline formula. Skipped (with a note) when the repository's examples folder is not next to the build.
+    /// </summary>
+    private async Task JumpSampleDocument()
+    {
+        string? sample = null;
+        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null && sample is null; dir = dir.Parent)
+        {
+            string candidate = Path.Combine(dir.FullName, "examples", "sample.md");
+            if (File.Exists(candidate)) sample = candidate;
+        }
+        if (sample is null)
+        {
+            Note("examples/sample.md not found next to the build: sample round trip skipped");
+            return;
+        }
+
+        string md = File.ReadAllText(sample, Encoding.UTF8).Replace("\r\n", "\n");
+        window.Execute(Cmd.ViewSplit);
+        foreach (var (zoom, dark) in new[] { (1.0, false), (1.5, false), (1.0, true), (1.5, true) })
+        {
+            string tag = $"{zoom * 100:F0}%-{(dark ? "dark" : "light")}";
+            window.SetThemeForTest(dark ? Microsoft.UI.Xaml.ElementTheme.Dark : Microsoft.UI.Xaml.ElementTheme.Light);
+            window.SetZoomForTest(zoom);
+            Editor.SetDocument(md);
+            await window.Preview.RenderAndWaitAsync();
+            await WaitFor(() => Editor.StylesSettled);
+            await Wait(500);
+
+            await CheckJump(tag, md, "嵌套一层", "  - 嵌套一层");
+            await CheckJump(tag, md, "按源码行对齐", "| 滚动同步");
+            await CheckJump(tag, md, "数学公式", "## 数学公式");
+            await CheckJump(tag, md, ".katex", "行内公式", css: true, expectText: "E = mc^2");
+            await CheckJump(tag, md, "好的工具应该隐形", "> 好的工具应该隐形");
+            await CheckJump(tag, md, "Greeting", "struct Greeting", expectText: "Greeting");
+
+            if (output is not null)
+                await window.CaptureForTestAsync($"{output}.jump-{tag}.png");
+        }
+        window.SetThemeForTest(Microsoft.UI.Xaml.ElementTheme.Light);
+        window.SetZoomForTest(1.0);
+        Editor.SetDocument(md);
+        await window.Preview.RenderAndWaitAsync();
+        await Wait(500);
+
+        // An observation, not a check: the page scrolls to an in-page #anchor on the first click, so the second click of a
+        // double-click lands on whatever moved under the pointer. Recorded so the behaviour is known rather than guessed.
+        const string anchor = "跳到顶部";
+        await ScrollPreviewTo(anchor);
+        await Wait(300);
+        Editor.Select(0, 0);
+        double anchorBefore = await PreviewScrollY();
+        await DoubleClickWord(anchor);
+        await Wait(700);
+        Note($"double-click on an in-page #anchor link: preview scrollY {anchorBefore:F0} -> {await PreviewScrollY():F0}, editor selection {Editor.Selection}");
+        await Wait(300);
+    }
+
+    /// <summary>
+    /// Real double-click on <paramref name="target"/> with the editor parked at the top. The editor must select the same
+    /// text the browser selected (or <paramref name="expectText"/>), on the line that contains <paramref name="lineMarker"/>,
+    /// with that line on screen, and the preview must not move.
+    /// </summary>
+    private async Task CheckJump(string tag, string md, string target, string lineMarker, bool css = false, string? expectText = null)
+    {
+        int expectedLine = md[..md.IndexOf(lineMarker, StringComparison.Ordinal)].Count(c => c == '\n');
+        await ScrollPreviewTo(target, css);
+        await Wait(300);                        // the editor follows the preview...
+        Editor.ScrollToLine(0, bottom: false);  // ...then is parked at the top
+        Editor.Select(0, 0);                    // sentinel: anything else is the jump
+        await Wait(300);
+        double previewBefore = await PreviewScrollY();
+        window.FocusPreviewForTest();
+        await DoubleClickWord(target, css);
+        await WaitFor(() => Editor.Selection.Length > 0, 2000);
+        await Wait(300);
+
+        string? word = expectText ?? await JsString("getSelection().toString().trim()");
+        var (start, length) = Editor.Selection;
+        string selected = Editor.Text.Substring(start, length);
+        int line = Editor.Text[..start].Count(c => c == '\n');
+        var (offset, _, viewport) = Editor.ScrollMetrics();
+        double y = Editor.ContentYForTest(line);
+        bool visible = y >= offset - 1 && y <= offset + viewport;
+        bool still = Math.Abs(await PreviewScrollY() - previewBefore) < 1;
+        bool focused = ReferenceEquals(window.FocusedElementForTest, Editor.Box);
+        Check($"sample {tag}: double-click '{target}'", selected == word && line == expectedLine && visible && still && focused,
+            $"selected '{selected}' vs '{word}', line {line} vs {expectedLine}, on screen {visible}, preview still {still}, editor focused {focused}");
+    }
+
+    private async Task<double> PreviewScrollY() =>
+        double.Parse(await JsString("String(window.scrollY)") ?? "NaN", CultureInfo.InvariantCulture);
+
+    // `target` is a piece of rendered text, or a CSS selector when `css` is set (for things without text, like formulas).
+    private Task<string?> ScrollPreviewTo(string target, bool css = false) => JsString(css
+        ? $"document.querySelector('{target}').scrollIntoView({{ block: 'center' }}); 'ok'"
+        : $$"""
+          (() => {
+            const w = document.createTreeWalker(document.getElementById('content'), NodeFilter.SHOW_TEXT);
+            for (let n = w.nextNode(); n; n = w.nextNode())
+              if (n.nodeValue.includes('{{target}}')) { n.parentElement.scrollIntoView({ block: 'center' }); return 'ok'; }
+            return 'missing';
+          })()
+          """);
+
+    private async Task DoubleClickWord(string target, bool css = false)
+    {
+        string? json = await JsString(css
+            ? $"(() => {{ const b = document.querySelector('{target}').getBoundingClientRect(); return JSON.stringify({{ x: b.x + b.width / 2, y: b.y + b.height / 2 }}); }})()"
+            : $$"""
+              (() => {
+                const w = document.createTreeWalker(document.getElementById('content'), NodeFilter.SHOW_TEXT);
+                for (let n = w.nextNode(); n; n = w.nextNode()) {
+                  const at = n.nodeValue.indexOf('{{target}}');
+                  if (at < 0) continue;
+                  const r = document.createRange();
+                  r.setStart(n, at);
+                  r.setEnd(n, at + {{target.Length}});
+                  const b = r.getBoundingClientRect();
+                  return JSON.stringify({ x: b.x + b.width / 2, y: b.y + b.height / 2 });
+                }
+                return JSON.stringify({ x: -1, y: -1 });
+              })()
+              """);
+        using var point = JsonDocument.Parse(json ?? "{}");
+        double x = point.RootElement.GetProperty("x").GetDouble(), y = point.RootElement.GetProperty("y").GetDouble();
+        await DispatchMouse("mouseMoved", x, y, 0);
+        await DispatchMouse("mousePressed", x, y, 1);
+        await DispatchMouse("mouseReleased", x, y, 1);
+        await DispatchMouse("mousePressed", x, y, 2);
+        await DispatchMouse("mouseReleased", x, y, 2);
+    }
+
+    /// <summary>Trusted mouse input at a viewport position in the preview (DevTools protocol, no focus or cursor needed).</summary>
+    private async Task DispatchMouse(string type, double x, double y, int clickCount)
+    {
+        string px = x.ToString("F2", CultureInfo.InvariantCulture), py = y.ToString("F2", CultureInfo.InvariantCulture);
+        string buttons = type == "mousePressed" ? "1" : "0";
+        await window.Preview.Core!.CallDevToolsProtocolMethodAsync("Input.dispatchMouseEvent",
+            $$"""{"type":"{{type}}","x":{{px}},"y":{{py}},"button":"left","buttons":{{buttons}},"clickCount":{{clickCount}}}""");
     }
 
     private async Task FindReplace()

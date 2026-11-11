@@ -69,6 +69,8 @@ internal sealed class PreviewHost
 
     public event Action<double, bool>? ScrollRequested;
     public event Action<string>? LinkClicked;
+    /// <summary>Double-click in the preview: source line, column and length (UTF-16 units). Mirrors the "jump" message handler on macOS.</summary>
+    public event Action<int, int, int>? JumpRequested;
     public event Action<int, bool, bool>? KeyForwarded;
     public event Action<string[]>? FilesDropped;
     public event Action? RuntimeMissing;
@@ -185,6 +187,9 @@ internal sealed class PreviewHost
             case "link" when body.ValueKind == JsonValueKind.String:
                 LinkClicked?.Invoke(body.GetString()!);
                 break;
+            case "jump" when body.ValueKind == JsonValueKind.Object && body.TryGetProperty("line", out var jumpLine) && jumpLine.TryGetInt32(out int targetLine):
+                JumpRequested?.Invoke(targetLine, IntOrZero(body, "column"), IntOrZero(body, "length"));
+                break;
             case "key" when body.ValueKind == JsonValueKind.Object:
                 KeyForwarded?.Invoke(body.GetProperty("code").GetInt32(), body.GetProperty("ctrl").GetBoolean(), body.GetProperty("shift").GetBoolean());
                 break;
@@ -193,6 +198,9 @@ internal sealed class PreviewHost
                 break;
         }
     }
+
+    private static int IntOrZero(JsonElement body, string name) =>
+        body.TryGetProperty(name, out var value) && value.TryGetInt32(out int n) ? n : 0;
 
     private void Post(Action<Utf8JsonWriter> write)
     {
