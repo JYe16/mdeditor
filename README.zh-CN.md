@@ -39,7 +39,7 @@
 | | macOS 13 及以上 | Windows 10（2004）及以上 |
 | --- | --- | --- |
 | **架构** | Universal（Apple 芯片和 Intel） | x64 和 ARM64 |
-| **获取方式** | Homebrew 或 DMG | 从源码构建，或等安装包发布到 [Releases](../../releases) |
+| **获取方式** | Homebrew 或 DMG | 到 [Releases](../../releases) 下载安装程序或 zip，或从源码构建 |
 
 ### macOS
 
@@ -64,10 +64,7 @@ xattr -dr com.apple.quarantine /Applications/MDEditor.app
 
 ### Windows
 
-> [!NOTE]
-> Windows 安装包还没有放到 Releases，当前版本只有 macOS 的 DMG。在下一个带标签的版本发布之前，请[从源码构建安装程序](#windows-1)。
-
-运行安装程序后，可以选择仅为自己安装（不需要管理员权限）或为所有用户安装，安装位置可以任选。.NET 和 Windows App SDK 已经打包在内。预览依赖 WebView2 运行库，Windows 11 自带；其他系统上安装程序会提示下载。ARM64 安装包已能构建，但还没有在真机上测试过。
+到 [Releases](../../releases) 下载 `MDEditor-<版本>-win-x64-setup.exe`（ARM64 设备选 `win-arm64`），也可以下载对应的 `.zip` 作为免安装版；也可以[从源码构建安装程序](#windows-1)。运行安装程序后，可以选择仅为自己安装（不需要管理员权限）或为所有用户安装，安装位置可以任选。.NET 和 Windows App SDK 已经打包在内。预览依赖 WebView2 运行库，Windows 11 自带；其他系统上安装程序会提示下载。ARM64 安装包已能构建，但还没有在真机上测试过。
 
 <details>
 <summary>SmartScreen、默认应用和安全软件</summary>

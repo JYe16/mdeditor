@@ -39,7 +39,7 @@ English · [简体中文](README.zh-CN.md)
 | | macOS 13 or later | Windows 10 (2004) or later |
 | --- | --- | --- |
 | **Architectures** | Universal (Apple silicon and Intel) | x64 and ARM64 |
-| **Get it** | Homebrew or DMG | Build from source, or the installer once it is in [Releases](../../releases) |
+| **Get it** | Homebrew or DMG | Installer or zip from [Releases](../../releases), or build from source |
 
 ### macOS
 
@@ -64,10 +64,7 @@ xattr -dr com.apple.quarantine /Applications/MDEditor.app
 
 ### Windows
 
-> [!NOTE]
-> Windows packages are not in Releases yet: the current release contains only the macOS DMG. Until the next tagged release, [build the installer from source](#windows-1).
-
-Run the installer. It asks whether to install for you only (no administrator rights needed) or for all users, and lets you pick any folder. .NET and the Windows App SDK are bundled. The preview needs the WebView2 Runtime, which Windows 11 already has; on other systems the installer offers to download it. ARM64 packages are built but have not yet been tested on real hardware.
+Download `MDEditor-<version>-win-x64-setup.exe` (or `win-arm64`) from [Releases](../../releases), or the matching `.zip` for a portable copy; you can also [build the installer from source](#windows-1). Run the installer. It asks whether to install for you only (no administrator rights needed) or for all users, and lets you pick any folder. .NET and the Windows App SDK are bundled. The preview needs the WebView2 Runtime, which Windows 11 already has; on other systems the installer offers to download it. ARM64 packages are built but have not yet been tested on real hardware.
 
 <details>
 <summary>SmartScreen, default apps and security software</summary>
