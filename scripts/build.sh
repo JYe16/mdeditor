@@ -1,13 +1,13 @@
 #!/bin/bash
 # Builds a universal (Apple silicon + Intel) MDEditor.app into ./build
 #
-#   ./scripts/build.sh                 # version 1.1.0
+#   ./scripts/build.sh                 # version 1.1.1
 #   VERSION=1.2.0 ./scripts/build.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 APP_NAME="MDEditor"
-VERSION="${VERSION:-1.1.0}"
+VERSION="${VERSION:-1.1.1}"
 BUILD="${BUILD:-$(date +%Y%m%d%H%M)}"
 APP="build/$APP_NAME.app"
 

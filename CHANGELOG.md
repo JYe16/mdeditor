@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.1
+
+- macOS: closing the last window (red button or ⌘W) now quits the app instead of leaving it in the Dock. Unsaved
+  changes are still offered for saving first.
+
 ## 1.1.0
 
 macOS. The Windows app gets the same changes next (see `windows/HANDOFF-v1.1.md`).

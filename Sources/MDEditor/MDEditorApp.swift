@@ -14,17 +14,31 @@ struct MDEditorApp: App {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// True while the launch-time cleanup below closes empty "Untitled" leftovers. That must never
+    /// count as "the last window was closed" (the real document's window may not be on screen yet).
+    private var isClosingLeftovers = false
+
+    /// Closing the last window (red button or ⌘W) quits the app instead of leaving it in the Dock.
+    /// Unsaved changes are still offered for saving first, and cancelling that keeps the app open.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        !isClosingLeftovers
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // SwiftUI opens an empty "Untitled" window at launch even when the app was started by
         // opening a file. Once the file is open, close the empty leftovers.
         for delay in [0.6, 1.5, 3.0] {
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { Self.closeEmptyUntitledDocuments() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                self?.closeEmptyUntitledDocuments()
+            }
         }
     }
 
-    private static func closeEmptyUntitledDocuments() {
+    private func closeEmptyUntitledDocuments() {
         let documents = NSDocumentController.shared.documents
         guard documents.contains(where: { $0.fileURL != nil }) else { return }
+        isClosingLeftovers = true
+        defer { isClosingLeftovers = false }
         for document in documents where document.fileURL == nil && !document.isDocumentEdited {
             document.close()
         }

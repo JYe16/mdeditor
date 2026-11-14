@@ -1,7 +1,7 @@
 <Project>
   <!-- Single source of truth for the version: the assemblies, the About box and the installer all read it. -->
   <PropertyGroup>
-    <Version>1.1.0</Version>
+    <Version>1.1.1</Version>
     <Product>MDEditor</Product>
     <Company>JYe16</Company>
     <Authors>JYe16</Authors>
