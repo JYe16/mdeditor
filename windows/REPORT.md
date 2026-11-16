@@ -1,6 +1,6 @@
 # MDEditor for Windows: report
 
-Version 1.1.0 (adds double-click to jump to source and the new icon, HANDOFF-v1.1.md), WinUI 3 (Windows App SDK 2.6.5), .NET 10, unpackaged and self-contained, x64 and ARM64.
+Version 1.1.1 in the repository. The v1.1 work (double-click to jump to source and the new icon, HANDOFF-v1.1.md) and every check below were done on 1.1.0 builds; the later bump to 1.1.1 followed the macOS release and changed no Windows code. WinUI 3 (Windows App SDK 2.6.5), .NET 10, unpackaged and self-contained, x64 and ARM64.
 The editor decision and its evidence are in `docs/editor-decision.md`.
 
 ## Acceptance checklist (HANDOFF §12)
@@ -44,7 +44,7 @@ Run on one Windows 11 x64 machine (build 26300) at 175 % scaling.
 | Icon edge on a light taskbar | Found weak, then fixed with a **Windows-only rim** (approved by the maintainer; macOS files untouched). The right half is near-white, so its outer edge was about 1.05:1 against `#F3F3F3` at 16 to 48 px: the dark hairline from `make-icon.swift` is thinner than a pixel after the downscale, and the icon read as a dark block with half an "M". `make-ico.ps1` now blends the outermost pixels of the frames up to 48 px 70 % towards the ink colour (`$rimMaxSize`, `$rimInk`, `$rimStrength` at the top of the script). Measured on the straight edges of the white half: at least 3.84:1 on a light bar (`#F3F3F3`), 2.5 to 2.8:1 on a dark bar (`#1C1C1C`, where the edge used to be a near-white pixel at about 15:1, but the body beside it is still near-white). Checked as zoomed renderings and in the title bar of a running window (white background): the white half now has a visible outline. Frames of 64 px and up are unchanged |
 | Icon in the real taskbar, Alt+Tab, installer wizard | **Not verified**: only renderings of the frames on `#F3F3F3` and `#1C1C1C` and the title bar were looked at. Inno Setup is not installed on this machine, so no installer was built |
 | `docs/images/windows-light.png`, `windows-dark.png` | Retaken on the 1.1.0 build (they showed the old icon in the title bar): `sample.md` in split view, English UI, 100 % zoom, one image per theme, new icon visible. Captured with `PrintWindow` of the MDEditor window alone, at 125 % display scaling, so they are 1484 x 967 px instead of the earlier 1600 x 1042 (README shows them at 900 px wide) |
-| Version | `Directory.Build.props` is 1.1.0; the built `MDEditor.exe` reports 1.1.0 |
+| Version | Verified on 1.1.0: `Directory.Build.props` and the built `MDEditor.exe` both reported 1.1.0. The props file has since been bumped to 1.1.1 to match the macOS release; no 1.1.1 Windows build was made or checked here |
 
 ## Deviations from HANDOFF.md
 
@@ -58,10 +58,24 @@ Run on one Windows 11 x64 machine (build 26300) at 175 % scaling.
 8. **Front matter is excluded from inline colouring** as the brief says. The Mac code excludes only fences.
 9. **`install.exe`** is an extra copy of the x64 installer, requested by the user.
 10. **`--lang` and `--theme` switches** were added for diagnostics.
-11. **"Open with" registration is best-effort.** Security software can refuse these registry writes; setup then finishes and tells the user instead of failing.
+11. **"Open with" registration is best-effort.** Security software can refuse these registry writes; setup then finishes and tells the user instead of failing. See "Installer scope and Default apps" below for what a "just me" install does and does not get.
 12. Links with drive letters, UNC paths and alternate data streams are ignored after percent-decoding. That is stricter than §6.7, because clicking a UNC link could leak credentials.
 
 Resources under `Resources/preview/` were not modified.
+
+## Installer scope and Default apps
+
+The original README said to make MDEditor the default for `.md` in **Settings → Apps → Default apps → MDEditor**. For the
+default "just me" install that page does not list MDEditor, so the instruction did not work.
+
+| Item | Status |
+| --- | --- |
+| Finding | On Windows 11 build 26300 (x64): after a "just me" install the Default apps search for "MDEditor" found nothing, while the shell's handler list for `.md` (`SHAssocEnumHandlers`, what "Open with" is built from) did contain it. After an all-users install, where the same keys are written under HKLM, the search found MDEditor. VLC, Acrobat and MATLAB (all HKLM) are listed; MDEditor was the only HKCU application claiming file types. Read from the Settings window with UI Automation, not clicked through by hand |
+| Tried without effect | `ApplicationIcon` in Capabilities, Capabilities under `HKCU\Software\Clients\...`, `SupportedTypes` under the Applications key, restarting Settings, `SHCNE_ASSOCCHANGED`. All reverted |
+| Cause | **Inferred**, from this one machine. Microsoft's Default Programs documentation says nothing on HKCU against HKLM and states it does not apply to Windows 10 and later; I found no authoritative source for the rule |
+| Installer change | `MDEditor.iss`: `PrivilegesRequired=admin`, so "all users" is the recommended choice in the install-mode dialog and "just me" stays available. The Default apps shortcut on the last page is offered only for all-users installs. A "just me" install ends with a message saying it is not listed in Default apps and how to get it there |
+| Verified | The install-mode dialog, on a test build with a different AppId (no earlier installation to inherit the mode from): "Install for all users (recommended)" and "Install for me only", shown without a UAC prompt first; cancelled, nothing installed. x64 and ARM64 installers compile. The new x64 installer upgraded the existing all-users install in place (wizard reached the finish page, version 1.1.0, HKLM registration intact, MDEditor launched from the install under `D:\App`) |
+| Not verified | Making MDEditor the default for `.md` through the Settings page, end to end. The "just me" end-of-setup message and the all-users finish-page shortcut (the wizard pages after the mode dialog were not stepped through). Unattended installs without `/ALLUSERS` or `/CURRENTUSER` (they should take the recommended mode, so ask for elevation). Windows 10 and non-preview Windows 11 builds. The right-click "Open with" dialog itself, which cannot be seen through UI Automation |
 
 ## Shortcuts
 

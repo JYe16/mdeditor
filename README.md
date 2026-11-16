@@ -64,13 +64,13 @@ xattr -dr com.apple.quarantine /Applications/MDEditor.app
 
 ### Windows
 
-Download `MDEditor-<version>-win-x64-setup.exe` (or `win-arm64`) from [Releases](../../releases), or the matching `.zip` for a portable copy; you can also [build the installer from source](#windows-1). Run the installer. It asks whether to install for you only (no administrator rights needed) or for all users, and lets you pick any folder. .NET and the Windows App SDK are bundled. The preview needs the WebView2 Runtime, which Windows 11 already has; on other systems the installer offers to download it. ARM64 packages are built but have not yet been tested on real hardware.
+Download `MDEditor-<version>-win-x64-setup.exe` (or `win-arm64`) from [Releases](../../releases), or the matching `.zip` for a portable copy; you can also [build the installer from source](#windows-1). Run the installer. It asks whether to install for all users (recommended, needs administrator rights) or for you only, and lets you pick any folder. .NET and the Windows App SDK are bundled. The preview needs the WebView2 Runtime, which Windows 11 already has; on other systems the installer offers to download it. ARM64 packages are built but have not yet been tested on real hardware.
 
 <details>
 <summary>SmartScreen, default apps and security software</summary>
 
 - The installer is not code-signed. If SmartScreen appears, choose **More info → Run anyway**.
-- Setup adds MDEditor to "Open with". To make it the default, use **Settings → Apps → Default apps → MDEditor**; Windows reserves that choice for the user.
+- Setup adds MDEditor to "Open with". With an **all-users** install it also appears in **Settings → Apps → Default apps**, where you can make it the default for Markdown files; Windows reserves that choice for the user. A **just me** install is not listed on that page: use right-click → **Open with** → MDEditor instead, or run setup again and choose all users.
 - Some security software blocks "Open with" registration. MDEditor still installs and works; to open a file with it, use **Open with → Choose another app** and browse to `MDEditor.exe`.
 
 </details>

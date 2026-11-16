@@ -10,22 +10,32 @@ Requires Windows 10 version 2004 (build 19041) or later, x64 or ARM64, and the M
 
 ## Install
 
-Run `install.exe` (or `MDEditor-<version>-win-<arch>-setup.exe`). The wizard asks whether to install for you only
-(no administrator rights needed) or for all users, and lets you choose any folder.
+Run `install.exe` (or `MDEditor-<version>-win-<arch>-setup.exe`). The wizard asks for the install scope, then lets you
+choose any folder:
+
+* **All users** (recommended, needs administrator rights). Windows then lists MDEditor in **Settings → Apps → Default
+  apps**, where you can make it the default for `.md`. The last wizard page has a shortcut to that page.
+* **Just me** (no administrator rights). MDEditor is added to "Open with" (right-click a Markdown file → **Open with**),
+  but Windows does not list a per-user install in Settings → Default apps. Setup says so when it finishes. To get
+  MDEditor into that list later, run setup again and choose all users.
+
+Windows reserves the default-app choice for the user, so setup never sets it itself.
 
 The installer is not code-signed yet, so SmartScreen may say "Windows protected your PC": choose **More info → Run anyway**.
 
-MDEditor is added to "Open with" for Markdown files. Windows reserves the default-app choice for the user: to make it the
-default, use **Settings → Apps → Default apps → MDEditor**. The last installer page has a shortcut to that page.
-
-Unattended install, for package managers:
+Unattended install, for package managers. Pass the scope explicitly:
 
 ```bash
+install.exe /VERYSILENT /SUPPRESSMSGBOXES /ALLUSERS /DIR="D:\Apps\MDEditor"
 install.exe /VERYSILENT /SUPPRESSMSGBOXES /CURRENTUSER /DIR="D:\Apps\MDEditor"
 ```
 
-Uninstall from **Settings → Apps**. Your documents and `%LOCALAPPDATA%\MDEditor\settings.json` are kept.
-The portable `.zip` needs no installation: unzip it anywhere and run `MDEditor.exe`.
+The first one needs an elevated prompt (administrator rights), the second does not.
+
+Uninstall from **Settings → Apps** (an all-users install asks for administrator rights). Your documents and
+`%LOCALAPPDATA%\MDEditor\settings.json` are kept.
+The portable `.zip` needs no installation: unzip it anywhere and run `MDEditor.exe`. It registers nothing, so to open a
+Markdown file with it use **Open with → Choose another app** and browse to `MDEditor.exe`.
 
 ## Build
 

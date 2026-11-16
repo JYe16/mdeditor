@@ -1,5 +1,10 @@
 ﻿; MDEditor installer. Built by scripts/make-installer.ps1, which passes the defines below.
-; Wizard: language → install scope (just me / all users) → licence → free choice of folder → tasks → install.
+; Wizard: language → install scope (all users, recommended / just me) → licence → free choice of folder → tasks → install.
+;
+; Why "all users" is the recommended scope: Windows 11 only lists an app in Settings → Default apps (the page where the
+; user can make it the default for .md) when its Capabilities are registered under HKLM. A "just me" install registers
+; under HKCU, which still adds MDEditor to "Open with" but not to that page (checked on Windows 11 build 26300: the
+; Default apps search finds MDEditor only after an all-users install). Both modes stay available.
 
 #ifndef AppVersion
   #error Pass /DAppVersion=x.y.z (see scripts/make-installer.ps1)
@@ -51,7 +56,9 @@ DisableDirPage=no
 AlwaysShowDirOnReadyPage=yes
 DisableProgramGroupPage=yes
 DisableWelcomePage=no
-PrivilegesRequired=lowest
+; admin = "all users" is the recommended choice in the install-mode dialog; "just me" needs no administrator rights.
+; Unattended installs should pass /ALLUSERS or /CURRENTUSER explicitly (silent setup otherwise takes the recommended one).
+PrivilegesRequired=admin
 PrivilegesRequiredOverridesAllowed=dialog commandline
 ArchitecturesAllowed={#Allowed}
 ArchitecturesInstallIn64BitMode={#Allowed}
@@ -85,6 +92,8 @@ english.AssocDescription=Markdown Document
 chinesesimplified.AssocDescription=Markdown 文档
 english.NotWritable=This folder cannot be written to with your current permissions:%n%n%1%n%nChoose another folder, or go back to the start of setup and install for all users.
 chinesesimplified.NotWritable=当前权限无法写入此文件夹：%n%n%1%n%n请选择其他文件夹，或重新运行安装程序并选择“为所有用户安装”。
+english.AssocPerUser=MDEditor is installed for your account only.%n%nWindows offers it under "Open with" (right-click a Markdown file, Open with), but it does not list a "just me" install in Settings → Default apps.%n%nTo make MDEditor selectable there, run setup again and choose "Install for all users".
+chinesesimplified.AssocPerUser=MDEditor 已仅为你的账户安装。%n%n可以通过“打开方式”使用它（右键 Markdown 文件，选择“打开方式”），但 Windows 不会在“设置 → 默认应用”里列出“仅为我安装”的程序。%n%n如需在那里选择 MDEditor，请重新运行安装程序并选择“为所有用户安装”。
 english.AssocBlocked=MDEditor is installed and works normally, but security software blocked adding it to "Open with".%n%nTo open Markdown files with it, right-click a file, choose Open with, then Choose another app, and browse to MDEditor.exe in the install folder.
 chinesesimplified.AssocBlocked=MDEditor 已安装，可以正常使用，但安全软件阻止了将其添加到“打开方式”。%n%n如需用它打开 Markdown 文件，请右键文件，选择“打开方式”→“选择其他应用”，然后浏览到安装目录中的 MDEditor.exe。
 english.WebView2Prompt=MDEditor's preview needs the Microsoft Edge WebView2 Runtime, which is not installed on this PC.%n%nDownload and install it from Microsoft now? (about 2 MB, then it downloads the runtime)
@@ -132,7 +141,8 @@ Root: HKA; Subkey: "Software\RegisteredApplications"; ValueType: string; ValueNa
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,MDEditor}"; Flags: nowait postinstall skipifsilent
-Filename: "ms-settings:defaultapps"; Description: "{cm:DefaultAppsRun}"; Flags: shellexec nowait postinstall skipifsilent unchecked; Tasks: assoc
+; Only offered for all-users installs: a "just me" install is not listed on that page, so the shortcut would lead nowhere.
+Filename: "ms-settings:defaultapps"; Description: "{cm:DefaultAppsRun}"; Flags: shellexec nowait postinstall skipifsilent unchecked; Tasks: assoc; Check: IsAdminInstallMode
 
 [UninstallDelete]
 ; The browser cache is disposable. settings.json next to it is the user's and is kept.
@@ -215,10 +225,18 @@ end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
-  if (CurStep = ssPostInstall) and AssocWasBlocked then
+  if CurStep = ssPostInstall then
   begin
-    Log('Open with registration was refused by the system or security software.');
-    SuppressibleMsgBox(CustomMessage('AssocBlocked'), mbInformation, MB_OK, IDOK);
+    if AssocWasBlocked then
+    begin
+      Log('Open with registration was refused by the system or security software.');
+      SuppressibleMsgBox(CustomMessage('AssocBlocked'), mbInformation, MB_OK, IDOK);
+    end
+    else if WizardIsTaskSelected('assoc') and (not IsAdminInstallMode) then
+    begin
+      Log('Per-user install: MDEditor is in "Open with" but is not listed in Settings > Default apps.');
+      SuppressibleMsgBox(CustomMessage('AssocPerUser'), mbInformation, MB_OK, IDOK);
+    end;
   end;
   if (CurStep = ssPostInstall) and (not WizardSilent) and (not WebView2Installed) then
     if MsgBox(CustomMessage('WebView2Prompt'), mbConfirmation, MB_YESNO) = IDYES then

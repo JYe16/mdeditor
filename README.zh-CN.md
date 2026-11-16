@@ -64,13 +64,13 @@ xattr -dr com.apple.quarantine /Applications/MDEditor.app
 
 ### Windows
 
-到 [Releases](../../releases) 下载 `MDEditor-<版本>-win-x64-setup.exe`（ARM64 设备选 `win-arm64`），也可以下载对应的 `.zip` 作为免安装版；也可以[从源码构建安装程序](#windows-1)。运行安装程序后，可以选择仅为自己安装（不需要管理员权限）或为所有用户安装，安装位置可以任选。.NET 和 Windows App SDK 已经打包在内。预览依赖 WebView2 运行库，Windows 11 自带；其他系统上安装程序会提示下载。ARM64 安装包已能构建，但还没有在真机上测试过。
+到 [Releases](../../releases) 下载 `MDEditor-<版本>-win-x64-setup.exe`（ARM64 设备选 `win-arm64`），也可以下载对应的 `.zip` 作为免安装版；也可以[从源码构建安装程序](#windows-1)。运行安装程序后，可以选择为所有用户安装（推荐，需要管理员权限）或仅为自己安装，安装位置可以任选。.NET 和 Windows App SDK 已经打包在内。预览依赖 WebView2 运行库，Windows 11 自带；其他系统上安装程序会提示下载。ARM64 安装包已能构建，但还没有在真机上测试过。
 
 <details>
 <summary>SmartScreen、默认应用和安全软件</summary>
 
 - 安装程序没有代码签名。如果出现 SmartScreen 提示，选择**更多信息 → 仍要运行**。
-- 安装程序会把 MDEditor 加入“打开方式”。要设为默认程序，请到**设置 → 应用 → 默认应用 → MDEditor**，这个选择 Windows 只留给用户自己。
+- 安装程序会把 MDEditor 加入“打开方式”。选择**为所有用户安装**时，它还会出现在**设置 → 应用 → 默认应用**里，可以在那里把它设为 Markdown 文件的默认程序，这个选择 Windows 只留给用户自己。**仅为自己安装**时不会出现在该页面：请右键文件，选择**打开方式** → MDEditor，或重新运行安装程序并选择为所有用户安装。
 - 部分安全软件会阻止注册“打开方式”，这不影响安装和使用。需要打开文件时，选择**打开方式 → 选择其他应用**，然后找到 `MDEditor.exe`。
 
 </details>
