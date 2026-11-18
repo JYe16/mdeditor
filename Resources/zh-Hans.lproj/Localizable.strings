@@ -38,3 +38,9 @@
 "%lld words" = "%lld 字";
 "%lld characters" = "%lld 个字符";
 "%lld min read" = "约 %lld 分钟阅读";
+
+/* 文件被其他程序修改（本地有未保存修改时的提示） */
+"“%@” was changed by another app." = "“%@”已被其他应用修改。";
+"You also have unsaved changes in MDEditor. Keep your version, or load the version on disk?" = "MDEditor 里还有未保存的修改。要保留你的版本，还是载入磁盘上的版本？";
+"Keep My Version" = "保留我的版本";
+"Load From Disk" = "载入磁盘上的版本";

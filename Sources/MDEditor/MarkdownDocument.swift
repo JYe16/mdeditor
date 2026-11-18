@@ -27,7 +27,7 @@ struct MarkdownDocument: FileDocument {
     }
 
     /// UTF-8 first (with or without BOM), then common fallbacks so old files still open.
-    private static func decode(_ data: Data) -> String {
+    static func decode(_ data: Data) -> String {
         if let s = String(data: data, encoding: .utf8) {
             return s.hasPrefix("\u{FEFF}") ? String(s.dropFirst()) : s
         }

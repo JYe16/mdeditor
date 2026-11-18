@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.2
+
+- Windows: the installer now recommends an all-users install, which is what makes MDEditor show up under Default apps.
+- macOS: when another program changes the open file (an editor, a sync client, a script, an AI agent), MDEditor reloads
+  it within about a second and keeps the scroll position. Atomic saves (write a temp file, then rename) and
+  delete-and-recreate writes are handled too. If the document has unsaved edits, a sheet asks whether to keep them or
+  load the version on disk.
+
 ## 1.1.1
 
 - macOS: closing the last window (red button or ⌘W) now quits the app instead of leaving it in the Dock. Unsaved

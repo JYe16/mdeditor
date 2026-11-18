@@ -95,6 +95,7 @@ Download `MDEditor-<version>-win-x64-setup.exe` (or `win-arm64`) from [Releases]
 - Editor only, split and preview only views
 - Print and PDF export
 - Relative images resolve against the document's folder, and relative `.md` links open in MDEditor
+- Changes that another program makes to the open file (an editor, a sync client, a script, an AI agent) show up within about a second. If you have unsaved edits of your own, MDEditor asks which version to keep
 - The preview is sanitized with DOMPurify, so a `<script>` in a document never runs
 - Links to executables are never launched: MDEditor only shows them in Finder or Explorer
 - English and Simplified Chinese interface, following the system language

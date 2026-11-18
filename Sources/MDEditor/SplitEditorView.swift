@@ -98,6 +98,12 @@ struct SplitEditorView: NSViewRepresentable {
         private var lineStarts: [Int] = [0]
         private var lineStartsValid = false
 
+        // File edited by another program (see "External changes" below)
+        private var watcher: FileWatcher?
+        private var watchedURL: URL?
+        private var promptedModification: Date?
+        private var isPrompting = false
+
         init(_ parent: SplitEditorView) {
             self.parent = parent
             self.appliedZoom = parent.zoom
@@ -202,6 +208,8 @@ struct SplitEditorView: NSViewRepresentable {
         func teardown() {
             NotificationCenter.default.removeObserver(self)
             renderWork?.cancel()
+            watcher?.stop()
+            watcher = nil
             for name in Self.scriptMessages {
                 webView?.configuration.userContentController.removeScriptMessageHandler(forName: name)
             }
@@ -228,6 +236,7 @@ struct SplitEditorView: NSViewRepresentable {
 
         func update(_ parent: SplitEditorView) {
             self.parent = parent
+            updateWatcher()
 
             if appliedZoom != parent.zoom {
                 appliedZoom = parent.zoom
@@ -248,12 +257,19 @@ struct SplitEditorView: NSViewRepresentable {
         }
 
         private func setEditorText(_ text: String) {
+            // Keep what the reader is looking at. A pixel offset would not survive: once the text is replaced,
+            // TextKit re-estimates the height of everything not laid out yet, so the same offset lands elsewhere.
+            // The top source line (as used for scroll sync) does.
+            let position = editorPosition()
             let selection = textView.selectedRange()
             textView.string = text
             let length = (text as NSString).length
             textView.setSelectedRange(NSRange(location: min(selection.location, length), length: 0))
             lineStartsValid = false
             rehighlight()
+            // The undo history refers to the old text; replaying it over the new text would garble the document.
+            textView.undoManager?.removeAllActions()
+            scrollEditor(toLine: position.line, bottom: position.atBottom)
         }
 
         private func applyMode(_ mode: ViewMode) {
@@ -308,6 +324,87 @@ struct SplitEditorView: NSViewRepresentable {
                 in: nil, in: .page
             ) { result in
                 if case .failure(let error) = result { NSLog("MDEditor: render failed: %@", String(describing: error)) }
+            }
+        }
+
+        // MARK: External changes (the file was edited by another program)
+
+        /// Starts (or moves) the file watcher when the document gets a file or its URL changes (Save As, rename).
+        private func updateWatcher() {
+            let url = parent.fileURL?.standardizedFileURL
+            guard url != watchedURL else { return }
+            watcher?.stop()
+            watcher = nil
+            watchedURL = url
+            promptedModification = nil
+            guard let url else { return }
+            watcher = FileWatcher(url: url) { [weak self] in self?.checkForExternalChange() }
+        }
+
+        private func currentDocument() -> NSDocument? {
+            if let window = split?.window, let doc = NSDocumentController.shared.document(for: window) { return doc }
+            guard let url = watchedURL else { return nil }
+            return NSDocumentController.shared.documents.first { $0.fileURL?.standardizedFileURL == url }
+        }
+
+        /// Runs on every file event and once a second, so it is cheap when nothing happened (one stat).
+        /// "Changed by someone else" means the file's modification date differs from the one the document
+        /// recorded when it last read or wrote the file; that also keeps our own autosaves out of the way.
+        private func checkForExternalChange() {
+            guard let url = watchedURL, !isPrompting, !textView.hasMarkedText(),
+                  let doc = currentDocument(), let known = doc.fileModificationDate,
+                  let onDisk = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date,
+                  abs(onDisk.timeIntervalSince(known)) > 0.001,
+                  let data = try? Data(contentsOf: url) else { return }
+
+            let text = MarkdownDocument.decode(data)
+            if text == textView.string {
+                doc.fileModificationDate = onDisk   // same content (touched, or a save we recorded late)
+                return
+            }
+            if !doc.isDocumentEdited {
+                reload(doc, from: url, modified: onDisk)
+            } else if promptedModification != onDisk {
+                promptedModification = onDisk
+                askAboutExternalChange(doc, modified: onDisk)
+            }
+        }
+
+        /// Replaces the document with the file on disk. `revert` re-reads through the normal document path, so the
+        /// editor, the preview and the "edited" state all follow without writing anything back to the file.
+        private func reload(_ doc: NSDocument, from url: URL, modified: Date) {
+            do {
+                try doc.revert(toContentsOf: url, ofType: doc.fileType ?? "")
+            } catch {
+                NSLog("MDEditor: reload failed: %@", String(describing: error))
+                guard let data = try? Data(contentsOf: url) else { return }
+                parent.text = MarkdownDocument.decode(data)
+                doc.updateChangeCount(.changeCleared)
+                doc.fileModificationDate = modified
+            }
+        }
+
+        /// The file changed on disk while there are unsaved edits here: never overwrite either side silently.
+        private func askAboutExternalChange(_ doc: NSDocument, modified: Date) {
+            guard let window = split.window, let url = doc.fileURL else { return }
+            isPrompting = true
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = String(
+                format: NSLocalizedString("“%@” was changed by another app.", comment: ""), doc.displayName)
+            alert.informativeText = NSLocalizedString(
+                "You also have unsaved changes in MDEditor. Keep your version, or load the version on disk?", comment: "")
+            alert.addButton(withTitle: NSLocalizedString("Keep My Version", comment: ""))
+            alert.addButton(withTitle: NSLocalizedString("Load From Disk", comment: ""))
+            alert.beginSheetModal(for: window) { [weak self] response in
+                guard let self else { return }
+                self.isPrompting = false
+                if response == .alertSecondButtonReturn {
+                    self.reload(doc, from: url, modified: modified)
+                } else {
+                    // Acknowledged: a later save overwrites the file on purpose, without a second warning.
+                    doc.fileModificationDate = modified
+                }
             }
         }
 
